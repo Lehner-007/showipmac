@@ -1,0 +1,87 @@
+name: showipmac DEB release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (for example v0.5.0)
+        required: true
+        default: v0.5.0
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+concurrency:
+  group: showipmac-deb-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select existing version tag
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$REQUESTED_TAG" ]]; then
+            tag="$REQUESTED_TAG"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          else
+            echo "A version tag is required."
+            exit 1
+          fi
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git rev-parse --verify "refs/tags/$tag^{commit}"
+          git checkout --detach "refs/tags/$tag"
+          version=$(python3 -B -c "import ast; t=ast.parse(open('core.py').read()); print(next(ast.literal_eval(n.value) for n in t.body if isinstance(n,ast.Assign) and any(isinstance(x,ast.Name) and x.id=='VERSION' for x in n.targets)))")
+          [[ "v$version" == "$tag" ]]
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          echo "DEB_NAME=showipmac_${tag#v}_all.deb" >> "$GITHUB_ENV"
+      - name: Build DEB from tag
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y python3 desktop-file-utils
+          mkdir -p dist
+          ./erstelledeb.sh
+      - name: Verify packaged source files
+        run: |
+          python3 - <<'PY'
+          import io, os, subprocess, tarfile, hashlib
+          from pathlib import Path
+          package = Path('dist') / os.environ['DEB_NAME']
+          import ast
+          tree = ast.parse(Path('core.py').read_text())
+          version = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign) and any(isinstance(x, ast.Name) and x.id == 'VERSION' for x in n.targets))
+          assert subprocess.check_output(['dpkg-deb','-f',str(package),'Version'],text=True).strip() == version
+          with tarfile.open(fileobj=io.BytesIO(subprocess.check_output(['dpkg-deb','--fsys-tarfile',str(package)]))) as archive:
+              for entry in archive.getmembers():
+                  prefix = './usr/share/showipmac/'
+                  if entry.isfile() and entry.name.startswith(prefix):
+                      source = Path(entry.name[len(prefix):])
+                      assert archive.extractfile(entry).read() == source.read_bytes(), str(source)
+          digest = hashlib.sha256(package.read_bytes()).hexdigest()
+          Path('dist/SHA256SUMS').write_text(f'{digest}  {package.name}\n')
+          PY
+      - name: Attach DEB and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Existing release found; preserving its title and notes."
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft \
+              --title "showipmac ${RELEASE_TAG#v}" \
+              --notes "showipmac ${RELEASE_TAG#v}. Das DEB wurde aus diesem Versionstag gebaut und der enthaltene Programmcode geprüft."
+          fi
+          # Do not overwrite existing release assets.
+          gh release upload "$RELEASE_TAG" "dist/$DEB_NAME" dist/SHA256SUMS
+          gh release edit "$RELEASE_TAG" --draft=false

@@ -1,0 +1,1 @@
+body{font-family:system-ui,sans-serif;max-width:900px;margin:3em auto;padding:1em;line-height:1.6;color:CanvasText;background:Canvas;color-scheme:light dark}h1,h2{font-weight:normal}body::before{content:"";position:fixed;inset:20%;background:url(showipmac.png) center/contain no-repeat;opacity:.10;pointer-events:none;z-index:-1}

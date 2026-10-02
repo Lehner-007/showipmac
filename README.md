@@ -1,0 +1,130 @@
+# showipmac
+
+GTK-4-Anwendung zur Erfassung von Geräten im ausgewählten lokalen Netzwerk.
+Erster Entwicklungsstand; zentrale Versionsquelle: `core.VERSION` (`./start.sh --version`).
+
+```bash
+./start.sh
+```
+
+Systemvoraussetzungen: Python 3, python3-gi, gir1.2-gtk-4.0, iproute2, python3-requests, python3-bs4.
+Für aktive Erfassung: ping (iputils-ping). Für Namensauflösung: getent.
+Keine automatische Installation, keine Root-Rechte, keine Telemetrie.
+
+Die Anwendung liest die tatsächlichen Schnittstellen und Präfixe. Sie erfasst
+Nachbarn, ordnet IPv4/IPv6 anhand beobachteter MAC-Adressen zu, bewahrt Adresshistorie
+in SQLite und unterstützt eigene Namen, Statusfilter, Details, bewusstes
+Zusammenführen und CSV-/JSON-Export. MAC-Zuordnungen sind Heuristiken, keine
+Identitätsgarantie. IPv6 wird anhand lokaler Nachbareinträge erfasst.
+
+Die aktive IPv4-Erfassung hat ein konfigurierbares Budget von 4096 Adressen;
+größere Subnetze werden ausdrücklich als unvollständig behandelt. Die Netzauswahl zeigt berechnete IPv4-Subnetze, erkannte Anschlussarten und
+Linux-Schnittstellennamen. IPv6 bleibt intern erhalten. Netzwerkdetails sind über das Menü erreichbar.
+Keine entfernten Netze, keine Portsweeps, keine Geräteanmeldung.
+
+Deutsch/Englisch sind extern in `lang/` und `help/` enthalten. Die lokale Hilfe
+erläutert Datenablage, Einschränkungen und Herstellerdaten. Herstellererkennung
+funktioniert offline mit den mitgelieferten IEEE-Daten; Aktualisierung nur per
+Benutzeraktion. Die Anwendung funktioniert auch bei fehlenden Herstellerdaten.
+
+Entwicklungsdaten liegen in `.config/`. Ein isolierter Teststart ist möglich mit
+`./start.sh --data-dir work/testprofil`. Persönliche Daten und Logs gehören nicht
+in eine Veröffentlichung.
+
+Tests:
+
+```bash
+/usr/bin/python3 -m unittest discover -s tests -v
+```
+
+Lizenz: GNU General Public License Version 3, **GPL-3.0-only**. Siehe `LICENSE`.
+Autor: Josef. Fremdressourcen: `THIRD_PARTY.md`.
+
+Bedienung über eine klassische Menüleiste im Stil von Linux Mint/Cinnamon.
+Keine Aktionsschaltflächen im Hauptfenster. Tabellenköpfe oder Ansicht → Sortieren
+nach sortieren die Liste, IPv4 numerisch. Eigener Rechner, lokale Zeit, kompakte
+IPv6-Anzeige und eine Scan-Zusammenfassung erleichtern die Übersicht.
+
+Status: Version 0.5.0 ist vom Benutzer zur Veröffentlichung freigegeben und
+technisch geprüft. Die GitHub-Veröffentlichung verwendet den Tag v0.5.0.
+
+## Reparatur 0.2.7 – globale MAC-Wiedererkennung
+
+Neu/Bekannt verwendet die MAC-Adresse in der gesamten SQLite-Datenbank,
+unabhängig von Scan-Schnittstelle und IP. Netzansichten bleiben getrennt.
+Frühere doppelte Einträge derselben MAC werden beim nächsten Fund unter
+Erhaltung eigener Namen und vollständiger Beobachtungshistorie vereinigt.
+Verschiedene MAC-Adressen werden nicht automatisch zusammengeführt.
+
+## Korrektur 0.2.8 – eigene Namen und saubere Installation
+
+Ein verfügbarer Hostname wird automatisch als eigener Name gespeichert, wenn
+noch kein Name gesetzt ist (Anzeige „Unbekannt“) oder der Name „Unbekannt“/„Unknown“
+lautet. Das gilt auch für bereits gespeicherte Geräte beim nächsten Programmstart.
+Eigene Namen können weiterhin geändert werden und werden nicht überschrieben.
+
+`erstelledeb.sh` stellt den Paketinhalt über eine Positivliste zusammen. Die
+Entwicklungsdatenbank `.config/devices.sqlite3`, Einstellungen, Logs und Tests
+werden niemals ausgeliefert. Die installierte Anwendung erstellt beim ersten
+Start eine leere Datenbank unter `~/.config/showipmac/devices.sqlite3` (bzw.
+`$XDG_CONFIG_HOME/showipmac`). Updates und erneute Installation erhalten diese
+Daten einschließlich eigener Namen. Nach vollständiger Deinstallation entsteht
+beim nächsten Start wieder eine neue Datenbank.
+
+Paketerstellung nach Benutzerfreigabe: `./erstelledeb.sh`.
+Installation: `apt install ./dist/showipmac_0.5.0_all.deb`.
+
+## Korrektur 0.3.1 – CSV-Speicherdialog
+
+Der GTK-Speicherdialog öffnet im Projektordner (installiert: Benutzerordner),
+nicht im versteckten Konfigurationsordner. Der Export schützt die aktive
+Gerätedatenbank vor Überschreiben.
+
+## Anpassung 0.3.2 – Datenbankausgabe im Menü
+
+Datei → Datenbankausgabe fasst CSV exportieren und JSON exportieren zusammen.
+Das zusätzliche Datenbankfenster wurde entfernt. Exportiert werden die aktuell
+sichtbaren Geräte mit Status Neu oder Bekannt; derzeit nicht gefundene Geräte
+werden ausgelassen.
+
+## Funktion 0.4.0 – Sprachpakete installieren
+
+Einstellungen → Sprachen installieren bietet:
+- eigene JSON-Sprachpakete samt Offline-Hilfe importieren,
+- GitHub-Basisadresse speichern,
+- verfügbare Sprachen aus catalog.json auswählen und samt Hilfe nachladen.
+
+Das Paketformat entspricht dem Checkweb-Verfahren, mit `program_id: showipmac`:
+`code`, `name`, `strings` (Übersetzungsschlüssel aus lang/en.json) und `help_html`.
+Fehlende Texte fallen auf Englisch zurück. Fremde Programmkennungen, ungültige
+Schlüssel/Platzhalter, unsichere Inhalte und zu große Downloads werden geprüft.
+Vorhandene Pakete werden nicht überschrieben; DE/EN bleiben im Basispaket.
+Installiert wird unter `<Datenverzeichnis>/languages/<code>/`; danach wird die
+Sprache sofort ausgewählt und die lokale Hilfe verwendet. Eigene Sprachcodes
+sind zulässig, ohne Begrenzung auf die acht vorgesehenen Standardsprachen.
+
+Die GitHub-Quelle zeigt auf den geplanten Ordner
+`https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/sprachpakete`.
+Die Adresse ist in den Einstellungen änderbar. Ein früher gespeicherter Wert
+bleibt erhalten; gegebenenfalls die neue Adresse dort eintragen. Vor der
+Veröffentlichung ist diese Quelle noch nicht als verfügbar bestätigt.
+
+
+## Veröffentlichungsvorbereitung 0.5.0
+
+`./erstellegithub.sh` prüft den Quellumfang, Lizenz, zentrale Version und
+auffällige Geheimnisse. Es erzeugt einen separaten Quellstand unter `dist/`;
+keine privaten Konfigurationen, Datenbanken, Logs, Caches oder Testausgaben.
+Der Standardlauf führt weder Commit, Tag noch Push aus.
+`./erstellegithub.sh --publish` zeigt Ziel und Dateiliste und verlangt vor
+Commit/Tag/Push eine ausdrückliche Bestätigung. Vorhandene Tags bleiben erhalten.
+
+Geplantes Ziel: `github:Lehner-007/showipmac.git`, Branch `main`.
+Die acht zusätzlichen Sprachen mit Offline-Hilfe liegen ausschließlich in
+`github/sprachpakete/` und werden nicht ins DEB-Basispaket aufgenommen.
+`github/version.json` identifiziert showipmac und die zentrale Programmversion.
+Alle Übersetzungsschlüssel und Platzhalter sind technisch geprüft; eine
+muttersprachliche Prüfung der Übersetzungen steht aus.
+
+Das GitHub-Repository und die Downloadquelle müssen vor Veröffentlichung
+verfügbar sein. Ein lokal vorbereitetes Repository ist noch kein Upload.

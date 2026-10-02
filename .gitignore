@@ -1,0 +1,7 @@
+.config/
+work/
+__pycache__/
+*.pyc
+dist/
+.env
+.pytest_cache/

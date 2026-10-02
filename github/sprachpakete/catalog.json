@@ -1,0 +1,37 @@
+{
+  "program_id": "showipmac",
+  "languages": [
+    {
+      "code": "ar",
+      "name": "العربية"
+    },
+    {
+      "code": "es",
+      "name": "Español"
+    },
+    {
+      "code": "fr",
+      "name": "Français"
+    },
+    {
+      "code": "hi",
+      "name": "हिन्दी"
+    },
+    {
+      "code": "pt",
+      "name": "Português"
+    },
+    {
+      "code": "ru",
+      "name": "Русский"
+    },
+    {
+      "code": "tr",
+      "name": "Türkçe"
+    },
+    {
+      "code": "zh",
+      "name": "中文"
+    }
+  ]
+}
