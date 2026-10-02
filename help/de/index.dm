@@ -4,7 +4,7 @@ ID: hilfe
 META
 SPRACHE: de
 STATUS: pruefung
-VERSION: 1.12
+VERSION: 1.13
 ERSTELLT: 29.09.2026
 GEAENDERT: 02.10.2026
 
@@ -37,7 +37,7 @@ Die getrennte lokale Datenbank verwendet die IEEE-Verzeichnisse MA-L, MA-M, MA-S
 Alle Programmfunktionen liegen in der klassischen Menüleiste. Hilfe → Über zeigt den nativen Informationsdialog mit showipmac-Logo, Version, Lizenz und Mitwirkenden. Das Wasserzeichen liegt mittig im Ergebnisbereich. Spaltenüberschriften sortieren per Klick; alternativ die direkt unter Ansicht → Sortieren nach aufgeführten Spalten verwenden. Erneute Auswahl derselben Spalte kehrt die Richtung um. IPv4-Adressen werden numerisch sortiert. Die Suche berücksichtigt Namen, Adressen und gespeicherte Beobachtungen. Der Statusfilter schränkt die Liste weiter ein. Datei → CSV exportieren exportiert die aktuell angezeigten Geräte in UTF-8 mit BOM; Zellen mit möglichen Tabellenformeln werden mit einem Apostroph abgesichert. JSON enthält zusätzlich die vollständige Beobachtungshistorie und stabile technische Schlüssel. Die Dateien enthalten persönliche Netzwerkdaten; wähle ihren Speicherort bewusst.
 
 ## Einstellungen, Sprachen und Dateien
-In der Entwicklung liegen Einstellungen unter .config/settings.json, Gerätedaten in .config/devices.sqlite3, aktualisierte Herstellerdaten in .config/vendors.json und begrenzte Logs in .config/logs. --data-dir erlaubt einen getrennten Datenordner. Deutsch und Englisch samt Hilfe funktionieren offline. Einstellungen → Sprache wechselt die Sprache sofort. Hostnamen stammen aus der konfigurierten System-Namensauflösung (NSS). Falls verfügbar, dient avahi-resolve-address als zusätzlicher mDNS-Rückfall; Namen werden nicht geraten. Zusätzliche lokale JSON-Sprachen in <Datenordner>/lang mit einem language_name-Feld werden beim Start erkannt; Hilfe liegt unter <Datenordner>/help/<Sprachcode>/index.html. Englisch ist die Rückfallsprache. Beschädigte Einstellungen bleiben als Diagnosekopie erhalten. Es existiert noch keine GitHub-Quelle für Sprach- oder Programmupdates.
+In der Entwicklung liegen Einstellungen unter .config/settings.json, Gerätedaten in .config/devices.sqlite3, aktualisierte Herstellerdaten in .config/vendors.json und begrenzte Logs in .config/logs. --data-dir erlaubt einen getrennten Datenordner. Deutsch und Englisch samt Hilfe funktionieren offline. Einstellungen → Sprache wechselt die Sprache sofort. Hostnamen stammen aus der konfigurierten System-Namensauflösung (NSS). Falls verfügbar, dient avahi-resolve-address als zusätzlicher mDNS-Rückfall; Namen werden nicht geraten. Zusätzliche lokale JSON-Sprachen in <Datenordner>/lang mit einem language_name-Feld werden beim Start erkannt; Hilfe liegt unter <Datenordner>/help/<Sprachcode>/index.html. Englisch ist die Rückfallsprache. Beschädigte Einstellungen bleiben als Diagnosekopie erhalten. Sprachpakete und Versionsdaten sind nun auf GitHub verfügbar.
 
 ## Lizenz
 Eigener Programmcode: GNU General Public License Version 3 (GPL-3.0-only), vollständiger Text in LICENSE. Autor: Josef. Die IEEE-Daten und ihre Herkunft/Lizenz sind in THIRD_PARTY.md und vendor/ieee-data-copyright.txt dokumentiert. Keine Telemetrie, keine Anmeldung an Geräten, keine Passwortversuche.
@@ -49,8 +49,14 @@ Datei → Datenbankausgabe enthält CSV exportieren und JSON exportieren. Beide 
 Der Speicherdialog öffnet im Projektordner, bei installierter Anwendung im Benutzerordner. Wähle einen Zielordner und bestätige mit Speichern. Abbrechen erstellt keine Datei.
 
 ## Sprachen installieren
-Einstellungen → Sprachen installieren bietet eine GitHub-Basisadresse, Sprachpaket importieren und Sprache und Hilfe nachladen. Eigene UTF-8-JSON-Pakete benötigen program_id „showipmac“, code, name, strings und help_html. Übersetzungen dürfen Schlüssel weglassen (englischer Rückfall), vorhandene Schlüssel und Platzhalter müssen aber stimmen. DE/EN können nicht durch Pakete ersetzt werden. Importierte Pakete werden im Benutzerprofil unter languages/<code>/ gespeichert und sofort ausgewählt. Die passende Hilfe funktioniert offline. Beim Nachladen wird catalog.json gelesen; bereits installierte Sprachen werden ausgeblendet. Heruntergeladen wird <code>.json erst nach bewusster Auswahl. Die GitHub-Adresse kann gespeichert werden; ohne Adresse funktioniert der lokale Import. Es werden nur HTTPS-GitHub-Adressen akzeptiert. Beschädigte, zu große, fremde oder bereits installierte Pakete werden nicht übernommen. Acht zusätzliche Sprach-/Hilfepakete sind getrennt für GitHub vorbereitet. Die geplante GitHub-Quelle wird erst nach Veröffentlichung verfügbar; sie bleibt in den Einstellungen änderbar.
+Einstellungen → Sprachen installieren bietet eine GitHub-Basisadresse, Sprachpaket importieren und Sprache und Hilfe nachladen. Eigene UTF-8-JSON-Pakete benötigen program_id „showipmac“, code, name, strings und help_html. Übersetzungen dürfen Schlüssel weglassen (englischer Rückfall), vorhandene Schlüssel und Platzhalter müssen aber stimmen. DE/EN können nicht durch Pakete ersetzt werden. Importierte Pakete werden im Benutzerprofil unter languages/<code>/ gespeichert und sofort ausgewählt. Die passende Hilfe funktioniert offline. Beim Nachladen wird catalog.json gelesen; bereits installierte Sprachen werden ausgeblendet. Heruntergeladen wird <code>.json erst nach bewusster Auswahl. Die GitHub-Adresse kann gespeichert werden; ohne Adresse funktioniert der lokale Import. Es werden nur HTTPS-GitHub-Adressen akzeptiert. Beschädigte, zu große, fremde oder bereits installierte Pakete werden nicht übernommen. Acht zusätzliche Sprach-/Hilfepakete sind getrennt für GitHub vorbereitet. Die veröffentlichte GitHub-Quelle ist verfügbar und bleibt in den Einstellungen änderbar.
 
 Ein Gerät kann mehrere MAC-Adressen haben: beispielsweise zwei LAN und eine WLAN. Zuerst LAN 1 und LAN 2 zusammenführen, danach den gemeinsamen Eintrag mit WLAN. Alle MAC-Adressen und Beobachtungen bleiben gespeichert; eine neue MAC muss manuell zugeordnet werden.
+
+## GitHub
+[showipmac](https://github.com/Lehner-007/showipmac)
+[Python-Quellcode als ZIP](https://github.com/Lehner-007/showipmac/archive/refs/heads/main.zip)
+[Releases](https://github.com/Lehner-007/showipmac/releases)
+[Sprachpakete / Language packs](https://github.com/Lehner-007/showipmac/tree/main/github/sprachpakete)
 
 ENDE

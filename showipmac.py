@@ -12,6 +12,7 @@ import webbrowser
 from core import ROOT, VERSION, Cancelled, Store, Vendors, discover_networks, export, scan, network_options, network_label, VendorUpdateError
 from presentation import local_time, cell_value, device_sort_key, scan_summary, display_date, connection_labels, selection_label
 from runtime import Runtime, native_language
+from core import PROJECT_URL
 
 
 def data_path():
@@ -674,6 +675,8 @@ def create_application(runtime):
             window, box = self.dialog('language_install', width=700, height=350)
             box.append(Gtk.Label(label=self.text('source_url'), xalign=0, wrap=True))
             source = Gtk.Entry(text=self.rt.settings['source_url'])
+            source.set_name('language_source_url')
+            window.source_entry = source
             box.append(source)
             box.append(Gtk.Label(label=self.text('language_pack_note'), xalign=0, wrap=True))
             def save_source():
@@ -808,7 +811,8 @@ def create_application(runtime):
             dialog = Gtk.AboutDialog(transient_for=self.window, modal=True,
                                      program_name='showipmac', version=VERSION,
                                      comments=self.text('app_subtitle'), authors=['Josef'],
-                                     license_type=Gtk.License.GPL_3_0_ONLY)
+                                     license_type=Gtk.License.GPL_3_0_ONLY,
+                                     website=PROJECT_URL, website_label='GitHub · showipmac')
             dialog.add_css_class('showipmac')
             dialog.set_logo(Gdk.Texture.new_from_filename(str(ROOT / 'assets/showipmac.png')))
             dialog.present()

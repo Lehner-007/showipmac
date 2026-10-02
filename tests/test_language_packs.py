@@ -84,6 +84,14 @@ class LanguagePackTests(unittest.TestCase):
         path=self.path/'large.json';path.write_bytes(b'x'*(MAX_PACK+1))
         with self.assertRaises(ValueError):import_pack(path,self.path)
 
+    def test_empty_source_uses_published_default_custom_source_preserved(self):
+        from core import LANGUAGE_SOURCE_URL
+        self.path.joinpath('settings.json').write_text(json.dumps({'source_url':''}))
+        self.assertEqual(Runtime(self.path).settings['source_url'],LANGUAGE_SOURCE_URL)
+        custom='https://raw.githubusercontent.com/example/custom/main/packs'
+        self.path.joinpath('settings.json').write_text(json.dumps({'source_url':custom}))
+        self.assertEqual(Runtime(self.path).settings['source_url'],custom)
+
     def test_download_size_timeout_and_redirect(self):
         from unittest.mock import MagicMock
         session=MagicMock();response=MagicMock()

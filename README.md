@@ -72,7 +72,7 @@ Daten einschließlich eigener Namen. Nach vollständiger Deinstallation entsteht
 beim nächsten Start wieder eine neue Datenbank.
 
 Paketerstellung nach Benutzerfreigabe: `./erstelledeb.sh`.
-Installation: `apt install ./dist/showipmac_0.5.0_all.deb`.
+Installation: `apt install ./dist/showipmac_0.5.1_all.deb`.
 
 ## Korrektur 0.3.1 – CSV-Speicherdialog
 
@@ -103,11 +103,9 @@ Installiert wird unter `<Datenverzeichnis>/languages/<code>/`; danach wird die
 Sprache sofort ausgewählt und die lokale Hilfe verwendet. Eigene Sprachcodes
 sind zulässig, ohne Begrenzung auf die acht vorgesehenen Standardsprachen.
 
-Die GitHub-Quelle zeigt auf den geplanten Ordner
+Die veröffentlichte GitHub-Quelle zeigt auf den Ordner
 `https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/sprachpakete`.
-Die Adresse ist in den Einstellungen änderbar. Ein früher gespeicherter Wert
-bleibt erhalten; gegebenenfalls die neue Adresse dort eintragen. Vor der
-Veröffentlichung ist diese Quelle noch nicht als verfügbar bestätigt.
+Die Adresse ist in den Einstellungen änderbar. Eigene Adressen bleiben erhalten; leere Quellen verwenden die veröffentlichte Standardadresse.
 
 
 ## Veröffentlichungsvorbereitung 0.5.0
@@ -119,12 +117,25 @@ Der Standardlauf führt weder Commit, Tag noch Push aus.
 `./erstellegithub.sh --publish` zeigt Ziel und Dateiliste und verlangt vor
 Commit/Tag/Push eine ausdrückliche Bestätigung. Vorhandene Tags bleiben erhalten.
 
-Geplantes Ziel: `github:Lehner-007/showipmac.git`, Branch `main`.
+Veröffentlichungsziel: `github:Lehner-007/showipmac.git`, Branch `main`.
 Die acht zusätzlichen Sprachen mit Offline-Hilfe liegen ausschließlich in
 `github/sprachpakete/` und werden nicht ins DEB-Basispaket aufgenommen.
 `github/version.json` identifiziert showipmac und die zentrale Programmversion.
 Alle Übersetzungsschlüssel und Platzhalter sind technisch geprüft; eine
 muttersprachliche Prüfung der Übersetzungen steht aus.
 
-Das GitHub-Repository und die Downloadquelle müssen vor Veröffentlichung
-verfügbar sein. Ein lokal vorbereitetes Repository ist noch kein Upload.
+Das GitHub-Repository und alle acht Sprachdownloads sind veröffentlicht und geprüft.
+
+
+## Links und Korrektur 0.5.1
+
+- [Projekt und Python-Quellen](https://github.com/Lehner-007/showipmac)
+- [Quellcode als ZIP](https://github.com/Lehner-007/showipmac/archive/refs/heads/main.zip)
+- [Releases und verfügbare Pakete](https://github.com/Lehner-007/showipmac/releases)
+- [Sprachpakete und Offline-Hilfen](https://github.com/Lehner-007/showipmac/tree/main/github/sprachpakete)
+- [Sprachkatalog](https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/sprachpakete/catalog.json)
+- [Versionsdaten](https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/version.json)
+
+Hilfe → Über enthält die Projektseite. Eine leere gespeicherte Sprachquelle
+verwendet jetzt die veröffentlichte Standardadresse; eigene Quellen bleiben
+unverändert. Ein DEB-Downloadlink wird erst nach vorhandenem Release-Anhang angegeben.

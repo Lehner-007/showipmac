@@ -5,9 +5,9 @@ import locale
 import os
 import re
 from pathlib import Path
-from core import ROOT, atomic_json
+from core import ROOT, LANGUAGE_SOURCE_URL, atomic_json
 
-DEFAULTS = {'config_version': 1, 'language': 'de', 'active': True, 'max_hosts': 4096, 'width': 1500, 'height': 800, 'source_url': 'https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/sprachpakete'}
+DEFAULTS = {'config_version': 1, 'language': 'de', 'active': True, 'max_hosts': 4096, 'width': 1500, 'height': 800, 'source_url': LANGUAGE_SOURCE_URL}
 
 class Runtime:
     def __init__(self, path):
@@ -39,6 +39,8 @@ class Runtime:
             except (ValueError, OSError):
                 self.warnings.append('config_error')
                 self.bad_config = True
+        if not self.settings['source_url'].strip():
+            self.settings['source_url'] = LANGUAGE_SOURCE_URL
         self.reload_languages()
         if self.settings['language'] not in self.languages:
             self.settings['language'] = 'en'

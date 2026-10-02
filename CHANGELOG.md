@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.5.1 – 02.10.2026
+- GitHub-Projektlink im Über-Dialog und Links in Hilfe/README ergänzt.
+- Leere Sprachquellen auf die veröffentlichte Standardadresse setzen.
+
 ## 0.5.0 – 02.10.2026
 - Wiederholbare GitHub-Vorbereitung und gesondert bestätigter Veröffentlichungsmodus.
 - Acht Sprachpakete mit Offline-Hilfe, Katalog und Versionsdatei.

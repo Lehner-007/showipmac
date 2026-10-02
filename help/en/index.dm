@@ -4,7 +4,7 @@ ID: hilfe
 META
 SPRACHE: en
 STATUS: pruefung
-VERSION: 1.12
+VERSION: 1.13
 ERSTELLT: 29.09.2026
 GEAENDERT: 02.10.2026
 
@@ -37,7 +37,7 @@ The separate local database uses IEEE MA-L, MA-M, MA-S and IAB registries. The l
 All program actions are available from the classic menu bar. Help → About shows the native information dialog with the showipmac logo, version, license and credits. The watermark is centered in the results area. Click column headings to sort, or choose the columns directly listed under View → Sort by. Selecting the same column again reverses the order. IPv4 addresses are sorted numerically. Search covers names, addresses and saved observations. The status filter narrows the list further. File → Export CSV exports the currently visible devices in UTF-8 with BOM; potential spreadsheet formulas receive a protective apostrophe. JSON additionally includes complete observation history and stable technical keys. Exported files contain personal network data; choose their location deliberately.
 
 ## Settings, languages and files
-Development settings live in .config/settings.json, devices in .config/devices.sqlite3, updated vendor data in .config/vendors.json and bounded logs in .config/logs. --data-dir selects a separate data directory. German and English and their help work offline. Settings → Language changes the language immediately. Hostnames come from configured system name resolution (NSS). If available, avahi-resolve-address provides an additional mDNS fallback; names are never guessed. Additional local JSON translations in <data directory>/lang with a language_name field are detected at startup; help belongs in <data directory>/help/<language code>/index.html. English is the fallback language. Damaged settings are kept as diagnostic copies. A GitHub source for language or application updates has not yet been published.
+Development settings live in .config/settings.json, devices in .config/devices.sqlite3, updated vendor data in .config/vendors.json and bounded logs in .config/logs. --data-dir selects a separate data directory. German and English and their help work offline. Settings → Language changes the language immediately. Hostnames come from configured system name resolution (NSS). If available, avahi-resolve-address provides an additional mDNS fallback; names are never guessed. Additional local JSON translations in <data directory>/lang with a language_name field are detected at startup; help belongs in <data directory>/help/<language code>/index.html. English is the fallback language. Damaged settings are kept as diagnostic copies. Language packs and version metadata are now available on GitHub.
 
 ## License
 Original program code: GNU General Public License version 3 (GPL-3.0-only), full text in LICENSE. Author: Josef. IEEE data provenance and licensing are documented in THIRD_PARTY.md and vendor/ieee-data-copyright.txt. No telemetry, device logins or password attempts.
@@ -49,8 +49,14 @@ File → Database export contains Export CSV and Export JSON. Both exports conta
 The save dialog opens in the project directory, or in the home directory for an installed application. Choose a destination and confirm with Save. Cancel does not create a file.
 
 ## Install languages
-Settings → Install languages provides a GitHub base URL, Import language pack and Download language and help. Custom UTF-8 JSON packs require program_id "showipmac", code, name, strings and help_html. Missing translation keys fall back to English; provided keys and placeholders must match. DE/EN cannot be replaced by packs. Imported packs are saved under languages/<code>/ in the user profile and selected immediately. Their help works offline. Downloads read catalog.json and hide installed languages. The <code>.json file is downloaded only after explicit selection. The GitHub URL can be saved; local imports work without a URL. Only HTTPS GitHub URLs are accepted. Invalid, oversized, foreign or already installed packs are rejected. Eight additional language and help packs are prepared separately for GitHub. The planned GitHub source becomes available after publication and remains editable in Settings.
+Settings → Install languages provides a GitHub base URL, Import language pack and Download language and help. Custom UTF-8 JSON packs require program_id "showipmac", code, name, strings and help_html. Missing translation keys fall back to English; provided keys and placeholders must match. DE/EN cannot be replaced by packs. Imported packs are saved under languages/<code>/ in the user profile and selected immediately. Their help works offline. Downloads read catalog.json and hide installed languages. The <code>.json file is downloaded only after explicit selection. The GitHub URL can be saved; local imports work without a URL. Only HTTPS GitHub URLs are accepted. Invalid, oversized, foreign or already installed packs are rejected. Eight additional language and help packs are prepared separately for GitHub. The published GitHub source is available and remains editable in Settings.
 
 A device can have multiple MAC addresses, for example two LAN and one Wi-Fi. First merge LAN 1 and LAN 2, then merge the combined entry with Wi-Fi. All MAC addresses and observations remain saved; new MAC addresses require manual association.
+
+## GitHub
+[showipmac](https://github.com/Lehner-007/showipmac)
+[Python source ZIP](https://github.com/Lehner-007/showipmac/archive/refs/heads/main.zip)
+[Releases](https://github.com/Lehner-007/showipmac/releases)
+[Language packs](https://github.com/Lehner-007/showipmac/tree/main/github/sprachpakete)
 
 ENDE

@@ -21,8 +21,11 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
 from email.utils import parsedate_to_datetime
 
-VERSION = '0.5.0'
+VERSION = '0.5.1'
 ROOT = Path(__file__).resolve().parent
+PROJECT_URL = 'https://github.com/Lehner-007/showipmac'
+LANGUAGE_SOURCE_URL = 'https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/sprachpakete'
+VERSION_INFO_URL = 'https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/version.json'
 
 
 def now():
