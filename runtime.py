@@ -5,9 +5,13 @@ import locale
 import os
 import re
 from pathlib import Path
-from core import ROOT, LANGUAGE_SOURCE_URL, atomic_json
+from core import ROOT, LANGUAGE_SOURCE_URL, VERSION_INFO_URL, atomic_json
 
-DEFAULTS = {'config_version': 1, 'language': 'de', 'active': True, 'max_hosts': 4096, 'width': 1500, 'height': 800, 'source_url': LANGUAGE_SOURCE_URL}
+DEFAULTS = {'config_version': 1, 'language': 'de', 'active': True, 'max_hosts': 4096, 'width': 1500, 'height': 800, 'source_url': LANGUAGE_SOURCE_URL,
+            'update_check': False, 'update_interval_value': 1, 'update_interval_unit': 'weeks',
+            'update_url': VERSION_INFO_URL, 'last_update_check': '',
+            'window_width': 1500, 'window_height': 800, 'window_x': 0, 'window_y': 0,
+            'window_position_known': False, 'window_maximized': False}
 
 class Runtime:
     def __init__(self, path):
@@ -30,12 +34,25 @@ class Runtime:
                     if key == 'max_hosts' and not 1 <= value <= 65536:
                         self.warnings.append('config_error')
                         continue
-                    if key in ('width', 'height') and not 500 <= value <= 3000:
+                    if key in ('width', 'height') and not 240 <= value <= 10000:
                         self.warnings.append('config_error')
+                        continue
+                    if key == 'update_interval_value' and not 1 <= value <= 365:
+                        self.warnings.append('config_error')
+                        continue
+                    if key == 'update_interval_unit' and value not in ('days', 'weeks', 'months'):
+                        self.warnings.append('config_error')
+                        continue
+                    if key in ('window_width', 'window_height') and not 240 <= value <= 10000:
+                        continue
+                    if key in ('window_x', 'window_y') and not -100000 <= value <= 100000:
                         continue
                     if key == 'config_version' and value != 1:
                         raise ValueError('config_version')
                     self.settings[key] = value
+                for old, new in (('width', 'window_width'), ('height', 'window_height')):
+                    if new not in data:
+                        self.settings[new] = self.settings[old]
             except (ValueError, OSError):
                 self.warnings.append('config_error')
                 self.bad_config = True
@@ -44,6 +61,15 @@ class Runtime:
         self.reload_languages()
         if self.settings['language'] not in self.languages:
             self.settings['language'] = 'en'
+
+    def save_values(self, values):
+        previous = self.settings
+        self.settings = dict(values)
+        try:
+            self.save()
+        finally:
+            self.settings = previous
+        previous.update(values)
 
     def reload_languages(self):
         self.languages = {}

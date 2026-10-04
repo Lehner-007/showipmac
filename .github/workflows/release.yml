@@ -3,9 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag (for example v0.5.0)
+        description: Existing release tag
         required: true
-        default: v0.5.0
   push:
     tags: ['v*']
 permissions:
@@ -80,7 +79,7 @@ jobs:
           else
             gh release create "$RELEASE_TAG" --verify-tag --draft \
               --title "showipmac ${RELEASE_TAG#v}" \
-              --notes "showipmac ${RELEASE_TAG#v}. Das DEB wurde aus diesem Versionstag gebaut und der enthaltene Programmcode geprüft."
+              --notes-file github/release-notes.md
           fi
           # Do not overwrite existing release assets.
           gh release upload "$RELEASE_TAG" "dist/$DEB_NAME" dist/SHA256SUMS

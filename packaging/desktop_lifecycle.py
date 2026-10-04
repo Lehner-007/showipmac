@@ -26,8 +26,28 @@ StartupNotify=true
 MANAGED = DESKTOP + 'X-Showipmac-Managed=true\n'
 
 
+def safe_path(home, path):
+    home, path = Path(home), Path(path)
+    if not home.is_dir() or home.is_symlink():
+        raise ValueError(f'Benutzerordner nicht erreichbar oder verknüpft: {home}')
+    try:
+        relative = path.relative_to(home)
+    except ValueError:
+        raise ValueError(f'Abweichender Speicherort muss gesondert geprüft werden: {path}')
+    if '..' in relative.parts:
+        raise ValueError(f'Unsicherer Pfad: {path}')
+    current = home
+    for part in relative.parts[:-1]:
+        current /= part
+        if current.is_symlink():
+            raise ValueError(f'Verknüpfter übergeordneter Ordner: {current}')
+    return path
+
+
 def desktop_dir(home):
-    config = home / '.config/user-dirs.dirs'
+    config = safe_path(home, home / '.config/user-dirs.dirs')
+    if config.is_symlink():
+        raise ValueError(f'Verknüpfte Desktop-Konfiguration: {config}')
     try:
         for line in config.read_text().splitlines():
             if line.startswith('XDG_DESKTOP_DIR='):
@@ -38,8 +58,10 @@ def desktop_dir(home):
                         return None  # Disabled desktop directory.
                     value = value.replace('${HOME}', str(home)).replace('$HOME', str(home))
                     target = Path(value)
-                    if target.is_absolute() and target != home and target.is_dir():
-                        return target
+                    if target == home:
+                        return None
+                    if target.is_absolute():
+                        return safe_path(home, target / "showipmac.desktop").parent
     except FileNotFoundError:
         pass
     return next((home / n for n in ('Schreibtisch', 'Desktop') if (home / n).is_dir()), None)
@@ -70,7 +92,11 @@ def remove_tree(path):
 
 
 def user_action(action, home):
+    home = Path(home)
+    safe_path(home, home / 'entry')
     desktop = desktop_dir(home)
+    if desktop is not None:
+        safe_path(home, desktop / 'showipmac.desktop')
     if action == 'configure':
         if desktop is None:
             return
@@ -78,8 +104,9 @@ def user_action(action, home):
         if (target.exists() or target.is_symlink()) and not is_shortcut(target):
             print('Showipmac: eigene Desktop-Datei bleibt erhalten:', target, file=sys.stderr)
             return
-        if target.is_symlink():
+        if target.exists() or target.is_symlink():
             target.unlink()
+        desktop.mkdir(parents=True, exist_ok=True)
         # Run as user, never as root; no privilege escalation via user paths.
         target.write_text(MANAGED)
         target.chmod(0o755)
@@ -90,11 +117,14 @@ def user_action(action, home):
     if action not in ('remove', 'purge'):
         return
     for folder in filter(None, [desktop, home / '.local/share/applications', home / '.config/autostart']):
+        safe_path(home, folder / 'entry.desktop')
         if folder.is_dir():
             for target in folder.glob('*.desktop'):
                 if is_shortcut(target):
                     target.unlink()
     trash = home / '.local/share/Trash'
+    safe_path(home, trash / 'files/entry')
+    safe_path(home, trash / 'info/entry')
     if (trash / 'files').is_dir():
         for target in (trash / 'files').glob('*.desktop'):
             if is_shortcut(target):
@@ -107,7 +137,8 @@ def user_action(action, home):
         if value and Path(value).is_absolute():
             locations.append(Path(value))
     for base in set(locations):
-        remove_tree(base / 'showipmac')
+        remove_tree(safe_path(home, base / 'showipmac'))
+    print('Showipmac: übliche Benutzerordner bereinigt; unbekannte abweichende XDG-Speicherorte benötigen gesonderte Prüfung.', file=sys.stderr)
 
 
 def main():
@@ -125,10 +156,12 @@ def main():
     for user in pwd.getpwall():
         if not 1000 <= user.pw_uid < 65534 or user.pw_shell.endswith(('/nologin', '/false')):
             continue
-        if not Path(user.pw_dir).is_dir():
+        if not Path(user.pw_dir).is_dir() or Path(user.pw_dir).is_symlink():
+            failed.append(user.pw_name)
             continue
         result = subprocess.run(['/usr/sbin/runuser', '-u', user.pw_name, '--',
-                                 '/usr/bin/python3', '-B', str(Path(__file__).resolve()), '--user', action])
+                                 '/usr/bin/python3', '-B', str(Path(__file__).resolve()), '--user', action],
+                                env={k: v for k, v in os.environ.items() if k not in ('XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME')})
         if result.returncode:
             failed.append(user.pw_name)
     if failed:

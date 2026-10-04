@@ -58,11 +58,14 @@ def main():
     runtime = Runtime(args.data_dir)
     (runtime.path / 'logs').mkdir(exist_ok=True)
     try:
-        handler = RotatingFileHandler(runtime.path / 'logs/showipmac.log', maxBytes=250_000, backupCount=2, encoding='utf-8')
+        handler = RotatingFileHandler(runtime.path / 'logs/showipmac.log', maxBytes=500_000, backupCount=2, encoding='utf-8')
         logging.basicConfig(level=logging.INFO, handlers=[handler], format='%(asctime)s %(levelname)s %(message)s', datefmt='%d.%m.%Y %H:%M:%S')
     except OSError:
         logging.basicConfig(level=logging.INFO)
-    logging.info(runtime.text('log_start'))
+    from modules.logs import SessionFormatter
+    for handler in logging.getLogger().handlers:
+        handler.setFormatter(SessionFormatter('%(asctime)s %(levelname)s %(message)s', datefmt='%d.%m.%Y %H:%M:%S'))
+    logging.info(runtime.text('log_start'), extra={'session_start': True})
     app = create_application(runtime)
     result = app.run([sys.argv[0]])
     logging.info(runtime.text('log_end'))
@@ -87,6 +90,10 @@ def create_application(runtime):
                 self.vendors = Vendors()
                 self.rt.warnings.append('oui_error')
             self.worker = None
+            from modules.jobs import JobRunner
+            self.jobs = JobRunner(lambda callback: GLib.idle_add(callback))
+            self.progress_dialog = None
+            self.pulse_timer = None
             self.cancel_event = threading.Event()
             self.closing = False
             self.networks = []
@@ -199,16 +206,20 @@ def create_application(runtime):
             table.append(header)
             table.append(Gtk.Separator())
             self.listbox = Gtk.ListBox()
+            self.listbox.add_css_class('showipmac-results')
+            stripes = Gtk.CssProvider()
+            stripes.load_from_data(b'list.showipmac-results > row:nth-child(even):not(:selected):not(:hover) {background-color: alpha(@theme_fg_color, 0.09);}')
+            Gtk.StyleContext.add_provider_for_display(display, stripes, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
             self.listbox.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
             self.listbox.connect('row-activated', lambda *_: self.details(None))
             table.append(self.listbox)
             bottom = self.row(box)
-            self.spinner = Gtk.Spinner()
-            bottom.append(self.spinner)
             self.status = Gtk.Label(xalign=0, wrap=True, selectable=True, hexpand=True)
             bottom.append(self.status)
             self.warnings = Gtk.Label(xalign=0, wrap=True, selectable=True)
             box.append(self.warnings)
+            from modules.integration import attach
+            attach(self)
             self.retranslate()
             self.window.present()
             self.refresh()
@@ -229,6 +240,13 @@ def create_application(runtime):
             self.set_status(self.status_key, **self.status_args)
             self.show_warnings()
             self.render_devices()
+            if hasattr(self.window, 'bindings'):
+                for widget, method, key in self.window.bindings:
+                    getattr(widget, method)(self.text(key))
+            if self.progress_dialog:
+                self.progress_dialog.set_title(self.text('progress_title'))
+                self.progress_dialog.task_label.set_label(self.text(self.job_title_key))
+                self.progress_dialog.cancel_button.set_label(self.text('cancel'))
 
         def update_vendor_label(self):
             date = self.vendors.data.get('date')
@@ -246,6 +264,7 @@ def create_application(runtime):
         def change_language(self, language):
             self.rt.settings['language'] = language
             native_language(language)
+            self.actions['active'].set_state(GLib.Variant('b', self.rt.settings['active']))
             self.actions['language'].set_state(GLib.Variant('s', language))
             try:
                 self.rt.save()
@@ -258,7 +277,8 @@ def create_application(runtime):
                          'details': self.details, 'merge': self.merge_devices, 'oui_update': self.update_vendors,
                          'csv': lambda: self.export_dialog('csv'), 'json': lambda: self.export_dialog('json'),
                          'help': self.open_help, 'about': self.about, 'quit': self.on_close,
-                         'network_info': self.network_info}
+                         'network_info': self.network_info, 'settings': self.settings_dialog,
+                         'results_export': self.export_results, 'log': self.show_log}
             callbacks['language_install'] = self.language_settings
             for name, callback in callbacks.items():
                 action = Gio.SimpleAction.new(name, None)
@@ -284,7 +304,7 @@ def create_application(runtime):
             sort.connect('activate', lambda _a, value: self.choose_sort(value.get_string()))
             self.add_action(sort)
             self.actions['sort'] = sort
-            for action, keys in {'start':['F5'], 'cancel':['Escape'], 'csv':['<Primary>e'],
+            for action, keys in {'start':['F5'], 'cancel':['Escape'], 'results_export':['<Primary>e'],
                                  'details':['<Alt>Return'], 'quit':['<Primary>q'], 'help':['F1']}.items():
                 self.set_accels_for_action('app.' + action, keys)
 
@@ -297,11 +317,11 @@ def create_application(runtime):
                 root.append_submenu(self.text(key), menu)
                 return menu
             file_menu = group('menu_file', [])
-            exports = Gio.Menu()
-            exports.append(self.text('csv'), 'app.csv')
-            exports.append(self.text('json'), 'app.json')
-            file_menu.append_submenu(self.text('database'), exports)
-            file_menu.append(self.text('quit'), 'app.quit')
+            for names in (['results_export'], ['settings'], ['quit']):
+                section = Gio.Menu()
+                for name in names:
+                    section.append(self.text(name), 'app.' + name)
+                file_menu.append_section(None, section)
             group('menu_network', ['start', 'cancel', 'refresh', 'network_info'])
             group('menu_devices', ['details', 'merge'])
             view = group('menu_view', [])
@@ -311,15 +331,10 @@ def create_application(runtime):
                 item.set_action_and_target_value('app.sort', GLib.Variant('s', key))
                 sorting.append_item(item)
             view.append_section(self.text('sort_by'), sorting)
-            settings = group('menu_settings', ['active', 'oui_update', 'language_install'])
-            languages = Gio.Menu()
-            for code in self.lang_codes:
-                item = Gio.MenuItem.new(self.rt.languages[code]['language_name'], None)
-                item.set_action_and_target_value('app.language', GLib.Variant('s', code))
-                languages.append_item(item)
-            settings.append_submenu(self.text('language'), languages)
-            group('help', ['help', 'about'])
+            group('help', ['help', 'log', 'about'])
             self.menu_bar.set_menu_model(root)
+            from modules.menus import compact_menus
+            compact_menus(self.menu_bar)
 
         def choose_sort(self, column):
             self.sort_reverse = not self.sort_reverse if self.sort_column == column else False
@@ -406,7 +421,7 @@ def create_application(runtime):
                 self.update_network_labels()
                 self.network_changed()
                 self.set_status('ready' if self.networks else 'no_network')
-            self.run_job(lambda: discover_networks(self.cancel_event), done)
+            self.run_job(lambda: discover_networks(self.cancel_event), done, title_key='task_discovery')
 
         def network_changed(self, *_):
             net = self.selected_network()
@@ -459,50 +474,84 @@ def create_application(runtime):
                     self.listbox.select_row(row)
 
         def busy(self, yes):
-            for name in ('start', 'refresh', 'active', 'oui_update', 'merge', 'details', 'language_install'):
+            for name in ('start', 'refresh', 'active', 'oui_update', 'merge', 'details', 'language_install', 'settings'):
                 self.actions[name].set_enabled(not yes)
             self.network_select.set_sensitive(not yes)
             self.actions['start'].set_enabled(not yes and self.selected_network() is not None)
-            self.actions['cancel'].set_enabled(yes)
-            self.spinner.set_spinning(yes)
+            self.actions['cancel'].set_enabled(yes and self.jobs.cancellable)
 
-        def run_job(self, function, done):
-            if self.worker:
-                return
-            self.cancel_event = threading.Event()
-            self.busy(True)
-            def work():
-                try:
-                    result = function()
-                    GLib.idle_add(finish, result, None)
-                except Exception as exc:
-                    GLib.idle_add(finish, None, exc)
+        def run_job(self, function, done, *, title_key='loading', cancellable=True):
+            if self.worker or self.closing:
+                return False
+            from modules.jobs import Cancelled as JobCancelled
+            from modules.windows import center_after_map
+            self.worker = True
+            self.job_title_key = title_key
+            logging.info(self.text(title_key))
+            self.progress_state = None
+            dialog = Gtk.Window(title=self.text('progress_title'), transient_for=self.window,
+                                modal=True, default_width=440, resizable=False)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14,
+                          margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+            dialog.set_child(box)
+            dialog.task_label = Gtk.Label(label=self.text(title_key), wrap=True, xalign=0)
+            box.append(dialog.task_label)
+            dialog.progress = Gtk.ProgressBar(show_text=True)
+            box.append(dialog.progress)
+            dialog.cancel_button = Gtk.Button(label=self.text('cancel'), sensitive=cancellable)
+            dialog.cancel_button.connect('clicked', self.cancel)
+            box.append(dialog.cancel_button)
+            dialog.connect('close-request', lambda *_: (self.cancel(), True)[1])
+            self.progress_dialog = dialog
+            def task(context):
+                self.cancel_event = context.cancel_event
+                return function()
             def finish(result, error):
                 self.worker = None
+                if self.pulse_timer:
+                    GLib.source_remove(self.pulse_timer)
+                    self.pulse_timer = None
+                dialog.destroy()
+                self.progress_dialog = None
                 self.busy(False)
-                if self.cancel_event.is_set() or isinstance(error, Cancelled):
+                if self.cancel_event.is_set() or isinstance(error, (Cancelled, JobCancelled)):
                     self.set_status('cancelled')
+                    logging.info(self.text('cancelled'))
                 elif error:
                     self.fail(error)
-                else:
+                elif not self.closing:
                     try:
                         done(result)
+                        logging.info(self.text('job_completed'))
                     except Exception as exc:
                         self.fail(exc)
                 if self.closing:
                     self.shutdown_window()
-                return False
-            self.worker = threading.Thread(target=work, daemon=True)
-            self.worker.start()
+            self.jobs.start(task, lambda *_: None, finish, cancellable=cancellable)
+            self.cancel_event = self.jobs.cancel_event
+            self.worker = self.jobs.thread
+            self.busy(True)
+            def pulse():
+                if self.progress_dialog is dialog and self.progress_state is None:
+                    dialog.progress.pulse()
+                return self.progress_dialog is dialog
+            self.pulse_timer = GLib.timeout_add(120, pulse)
+            dialog.present()
+            center_after_map(dialog, self.window)
+            return True
 
         def progress(self, key, value):
+            event = self.cancel_event
             def apply():
-                if self.cancel_event.is_set():
+                if self.cancel_event is not event or event.is_set() or not self.progress_dialog:
                     return False
                 if key == 'progress':
-                    self.set_status(key, done=value[0], total=value[1])
+                    current, total = value
+                    self.progress_state = (current, total)
+                    self.progress_dialog.progress.set_fraction(current / total if total else 0)
+                    self.progress_dialog.progress.set_text(self.text(key, done=current, total=total))
                 else:
-                    self.set_status(key, value=value)
+                    self.progress_dialog.task_label.set_label(self.text(key, value=value))
                 return False
             GLib.idle_add(apply)
 
@@ -524,13 +573,15 @@ def create_application(runtime):
                 self.set_status('complete', **scan_summary(self.devices))
                 self.show_warnings()
             self.run_job(lambda: scan(network, self.cancel_event, self.progress,
-                                     self.rt.settings['active'], self.rt.settings['max_hosts']), done)
+                                     self.rt.settings['active'], self.rt.settings['max_hosts']), done, title_key='task_scan')
 
         def cancel(self, *_):
-            if self.worker:
-                self.cancel_event.set()
+            if self.worker and self.jobs.cancel():
                 self.actions['cancel'].set_enabled(False)
                 self.set_status('cancelling')
+                if self.progress_dialog:
+                    self.progress_dialog.cancel_button.set_sensitive(False)
+                    self.progress_dialog.task_label.set_label(self.text('cancelling'))
 
         def fail(self, exc):
             logging.error('%s: %s', self.text('log_error'), exc, exc_info=exc)
@@ -627,38 +678,17 @@ def create_application(runtime):
             window.present()
 
         def export_dialog(self, kind, devices=None, parent=None):
-            devices = [dict(device) for device in (self.visible_devices if devices is None else devices)
-                       if device['status'] in ('new', 'known')]
-            chooser = Gtk.FileChooserDialog(title=self.text(kind), transient_for=parent or self.window,
-                                            modal=True, action=Gtk.FileChooserAction.SAVE)
-            chooser.add_button(self.text('cancel'), Gtk.ResponseType.CANCEL)
-            chooser.add_button(self.text('save'), Gtk.ResponseType.ACCEPT)
-            chooser.set_default_response(Gtk.ResponseType.ACCEPT)
-            file_filter = Gtk.FileFilter()
-            file_filter.set_name(kind.upper())
-            file_filter.add_pattern('*.' + kind)
-            chooser.add_filter(file_filter)
-            # Use an existing visible directory, never the private profile folder.
-            folder = ROOT if (ROOT / 'start.sh').is_file() else Path.home()
-            chooser.set_current_folder(Gio.File.new_for_path(str(folder.resolve())))
-            chooser.set_current_name('showipmac.' + kind)
-            def response(dialog, response_id):
-                if response_id == Gtk.ResponseType.ACCEPT:
-                    try:
-                        selected = dialog.get_file()
-                        if selected is None or selected.get_path() is None:
-                            raise ValueError(self.text('export_local_file'))
-                        path = Path(selected.get_path())
-                        if path.resolve() == (self.rt.path / 'devices.sqlite3').resolve():
-                            raise ValueError(self.text('export_database_protected'))
-                        export(path, devices, self.text, kind)
-                        self.set_status('exported', path=str(path))
-                    except Exception as exc:
-                        self.fail(exc)
-                dialog.destroy()
-            chooser.connect('response', response)
-            chooser.present()
-            return chooser
+            # Compatibility entry for callers; same native dialog and protection.
+            from modules.export import write_export
+            from modules.file_dialogs import choose
+            rows = [dict(device) for device in (self.visible_devices if devices is None else devices)
+                    if device['status'] in ('new', 'known')]
+            def save(path):
+                write_export(path, rows, self.window.results.columns, kind, self.window.tr)
+                self.set_status('exported', path=str(path))
+            return choose(self.window, 'results_export', save, action=Gtk.FileChooserAction.SAVE,
+                          parent=parent or self.window, filename='showipmac.' + kind,
+                          filters=((kind.upper(), ('*.' + kind,)),))
 
         def update_vendors(self, *_):
             if self.worker:
@@ -669,37 +699,22 @@ def create_application(runtime):
                 self.retranslate()
                 self.network_changed()
                 self.set_status('updated')
-            self.run_job(lambda: Vendors.update(self.rt.path / 'vendors.json', self.cancel_event), done)
+            self.run_job(lambda: Vendors.update(self.rt.path / 'vendors.json', self.cancel_event), done, title_key='task_vendor')
+
+        def settings_dialog(self):
+            from modules.settings_dialog import show_settings
+            return show_settings(self.window)
 
         def language_settings(self):
-            window, box = self.dialog('language_install', width=700, height=350)
-            box.append(Gtk.Label(label=self.text('source_url'), xalign=0, wrap=True))
-            source = Gtk.Entry(text=self.rt.settings['source_url'])
-            source.set_name('language_source_url')
-            window.source_entry = source
-            box.append(source)
-            box.append(Gtk.Label(label=self.text('language_pack_note'), xalign=0, wrap=True))
-            def save_source():
-                self.rt.settings['source_url'] = source.get_text().strip()
-                self.rt.save()
-            def download(*_):
-                try:
-                    save_source()
-                    self.download_language(source.get_text().strip(), window)
-                except Exception as exc:
-                    self.fail(exc)
-            def save(*_):
-                try:
-                    save_source()
-                    window.destroy()
-                except Exception as exc:
-                    self.fail(exc)
-            box.append(self.button('import_language', lambda *_: self.import_language(window)))
-            box.append(self.button('download_language', download))
-            box.append(self.button('save', save))
-            box.append(self.button('cancel', lambda *_: window.destroy()))
-            window.present()
-            return window
+            return self.settings_dialog()
+
+        def export_results(self):
+            from modules.export import show_export
+            return show_export(self.window)
+
+        def show_log(self):
+            from modules.logs import show_log
+            return show_log(self.window)
 
         def language_installed(self, code):
             self.rt.reload_languages()
@@ -721,29 +736,16 @@ def create_application(runtime):
                     logging.exception('language_install_failed')
                     raise RuntimeError(self.text('language_failed')) from exc
             self.set_status('languages_loading')
-            self.run_job(work, done)
+            self.run_job(work, done, title_key='installing_language', cancellable=False)
 
-        def import_language(self, parent=None):
+        def import_language(self, parent=None, installed=None):
             from languages import import_pack
-            chooser = Gtk.FileChooserDialog(title=self.text('import_language'), transient_for=parent or self.window,
-                                            modal=True, action=Gtk.FileChooserAction.OPEN)
-            chooser.add_button(self.text('cancel'), Gtk.ResponseType.CANCEL)
-            chooser.add_button(self.text('import_language'), Gtk.ResponseType.ACCEPT)
-            file_filter = Gtk.FileFilter()
-            file_filter.set_name('JSON')
-            file_filter.add_pattern('*.json')
-            chooser.add_filter(file_filter)
-            chooser.set_current_folder(Gio.File.new_for_path(str(ROOT if (ROOT / 'start.sh').exists() else Path.home())))
-            def response(dialog, result):
-                selected = dialog.get_file()
-                dialog.destroy()
-                if result == Gtk.ResponseType.ACCEPT and selected and selected.get_path():
-                    self.language_job(lambda: import_pack(selected.get_path(), self.rt.path), self.language_installed)
-            chooser.connect('response', response)
-            chooser.present()
-            return chooser
+            from modules.file_dialogs import choose
+            return choose(self.window, 'import_language',
+                lambda path: self.language_job(lambda: import_pack(path, self.rt.path), installed or self.language_installed),
+                parent=parent or self.window, filters=(('JSON', ('*.json',)),))
 
-        def download_language(self, source, parent=None):
+        def download_language(self, source, parent=None, installed=None):
             from languages import download_catalog, download_pack
             if self.worker:
                 return
@@ -790,12 +792,12 @@ def create_application(runtime):
                 window.destroy()
                 if result == Gtk.ResponseType.OK and selected < len(entries):
                     code = entries[selected]['code']
-                    self.language_job(lambda: download_pack(source, code, self.rt.path), self.language_installed)
+                    self.language_job(lambda: download_pack(source, code, self.rt.path), installed or self.language_installed)
             dialog.connect('response', response)
             dialog.language_choice = choice
             dialog.language_status = status
             dialog.present()
-            self.language_job(load, loaded)
+            self.run_job(load, loaded, title_key='loading_languages', cancellable=False)
             return dialog
 
         def open_help(self):
@@ -827,12 +829,28 @@ def create_application(runtime):
             return True
 
         def shutdown_window(self):
-            self.rt.settings['width'] = max(500, min(3000, self.window.get_width()))
-            self.rt.settings['height'] = max(500, min(3000, self.window.get_height()))
+            if not self.window.alive:
+                return
+            self.window_state.save()
+            self.rt.settings['width'] = self.rt.settings['window_width']
+            self.rt.settings['height'] = self.rt.settings['window_height']
+            self.window.alive = False
+            GLib.source_remove(self.update_timer)
+            for dialog in list(self.window.file_dialogs):
+                dialog.destroy()
+            for dialog in list(self.window.dialogs):
+                dialog.destroy()
             try:
                 self.rt.save()
             except OSError as exc:
                 logging.error('%s: %s', self.text('log_error'), exc)
+            for dialog in list(Gtk.Window.list_toplevels()):
+                parent = dialog.get_transient_for()
+                while parent is not None:
+                    if parent is self.window:
+                        dialog.destroy()
+                        break
+                    parent = parent.get_transient_for()
             self.store.close()
             self.window.destroy()
             self.quit()

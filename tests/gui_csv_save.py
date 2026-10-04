@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(dir=ROOT / 'work', prefix='gui-save-') as direc
                 phase = 2.5
             elif phase == 2.5:
                 with (path / 'found.csv').open(encoding='utf-8-sig') as handle:
-                    rows = list(csv.reader(handle))
+                    rows = list(csv.reader(handle, delimiter=';'))
                 assert len(rows) == 2 and rows[1][0] == 'printer.local'
                 assert app.status_key == 'exported'
                 app.change_language('en')

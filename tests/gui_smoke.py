@@ -41,7 +41,7 @@ def pump():
    assert len(app.devices)==1
    app.listbox.select_row(app.listbox.get_row_at_index(0))
    app.change_language('en')
-   assert app.menu_bar.get_menu_model().get_n_items()==6
+   assert app.menu_bar.get_menu_model().get_n_items()==5
    assert app.network_select.get_model().get_string(0)=='192.0.2.0/27 — virtual → qa0'
    assert len(app.listbox.get_selected_rows())==1
    app.search.set_text('Printer')

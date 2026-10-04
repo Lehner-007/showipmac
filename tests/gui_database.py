@@ -25,11 +25,10 @@ with tempfile.TemporaryDirectory(dir=ROOT / 'work', prefix='gui-database-') as d
                 app.change_language(code)
                 menu = app.menu_bar.get_menu_model()
                 file_menu = menu.get_item_link(0, 'submenu')
-                assert file_menu.get_n_items() == 2
-                exports = file_menu.get_item_link(0, 'submenu')
-                assert exports.get_n_items() == 2
-                assert exports.get_item_attribute_value(0, 'action', None).get_string() == 'app.csv'
-                assert exports.get_item_attribute_value(1, 'action', None).get_string() == 'app.json'
+                assert file_menu.get_n_items() == 3
+                section = file_menu.get_item_link(0, 'section')
+                assert section.get_item_attribute_value(0, 'action', None).get_string() == 'app.results_export'
+                assert file_menu.get_item_link(1, 'section').get_item_attribute_value(0, 'action', None).get_string() == 'app.settings'
                 assert not app.lookup_action('database')
                 assert not hasattr(app, 'database_window')
                 for kind in ('csv', 'json'):

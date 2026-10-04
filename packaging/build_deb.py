@@ -16,7 +16,7 @@ def stage_package(stage):
     version = re.search(r"^VERSION = '([0-9]+\.[0-9]+\.[0-9]+)'$", (ROOT / 'core.py').read_text(), re.M).group(1)
     app = stage / 'usr/share/showipmac'
     files = ['core.py', 'runtime.py', 'presentation.py', 'showipmac.py', 'languages.py', 'LICENSE', 'THIRD_PARTY.md']
-    files += [str(p.relative_to(ROOT)) for folder in ('assets', 'vendor', 'help/assets') for p in sorted((ROOT / folder).rglob('*')) if p.is_file()]
+    files += [str(p.relative_to(ROOT)) for folder in ('assets', 'vendor', 'help/assets', 'modules') for p in sorted((ROOT / folder).rglob('*')) if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc']
     files += [f'lang/{code}.json' for code in ('de', 'en')]
     files += [f'help/{code}/index.html' for code in ('de', 'en')]
     for name in files:
@@ -49,7 +49,7 @@ Priority: optional
 Architecture: all
 Maintainer: Josef
 Installed-Size: {(size + 1023) // 1024}
-Depends: python3 (>= 3.10), python3-gi, python3-requests, python3-bs4, gir1.2-gtk-4.0, iproute2, iputils-ping, libc-bin, util-linux
+Depends: python3 (>= 3.10), python3-gi, python3-requests, python3-bs4, gir1.2-gtk-4.0, iproute2, iputils-ping, libc-bin, libx11-6, util-linux
 Recommends: avahi-utils
 Description: Local network device discovery with GTK 4
  German and English interfaces, offline help and local device storage.

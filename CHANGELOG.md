@@ -1,5 +1,15 @@
 # Änderungen
 
+## 0.6.0 – 04.10.2026
+- Gemeinsamer Einstellungsdialog unter Datei mit sichtbaren Trennlinien und kompakten Menüs.
+- Zentriertes Fortschrittsfenster, kooperativer Abbruch und Warten beim Schließen.
+- Native Dateidialoge, geschützter CSV/JSON/HTML-Export mit Auswahl aller oder angezeigter Geräte.
+- Lesende Protokollanzeige und sichtbare Trennung der Programmsitzungen.
+- Fensterzustand mit Schutz vor nicht mehr vorhandenen Monitoren; abgesetzte Tabellenzeilen.
+- Bestehende Netzwerklogik, SQLite-Daten und Benutzerkonfiguration erhalten.
+- DEB-Erstellung und Veröffentlichung von Josef am 04.10.2026 beauftragt.
+- Paket-Deinstallation gegen verknüpfte übergeordnete Benutzerordner abgesichert.
+
 ## 0.5.1 – 02.10.2026
 - GitHub-Projektlink im Über-Dialog und Links in Hilfe/README ergänzt.
 - Leere Sprachquellen auf die veröffentlichte Standardadresse setzen.
