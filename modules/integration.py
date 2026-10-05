@@ -79,10 +79,19 @@ def attach(app):
         return app.import_language(parent, installed)
     window.import_language = import_language
     window.download_language = lambda source, parent, refresh: app.download_language(source, parent, lambda code: (app.rt.reload_languages(), refresh(code)))
-    window.check_update = lambda source: check_update(app, source)
+    app.update_info=None
+    app.update_status_key='software_checking'
+    app.update_check_running=False
+    window.check_update=lambda source=None:check_update(app,source)
+    window.download_update=lambda:download_available(app)
+    window.refresh_updates=lambda:refresh_updates(app)
     app.window_state = WindowState(window)
     app.update_timer = GLib.timeout_add_seconds(60, lambda: automatic_update(app))
-    GLib.idle_add(lambda: (automatic_update(app), False)[1])
+    GLib.idle_add(lambda: (initial_update(app), False)[1])
+
+
+def initial_update(app):
+    check_update(app)
 
 
 def automatic_update(app):
@@ -91,24 +100,54 @@ def automatic_update(app):
     return app.window.alive
 
 
-def check_update(app, source, automatic=False):
-    from languages import download_version
-    if app.worker:
-        return
-    if not source.strip() or 'xxxx' in source.split('/'):
-        app.window.notify('no_source' if not source.strip() else 'repository_placeholder')
-        return
-    def done(version):
-        if source == app.rt.settings['update_url']:
-            app.rt.settings['last_update_check'] = now()
-            app.rt.save()
-        newer = tuple(map(int, version.split('.'))) > tuple(map(int, VERSION.split('.')))
-        if newer or not automatic:
-            key = 'new_version' if newer else 'latest'
-            dialog = app.window.track(Gtk.Window(title=app.text('update_settings'), transient_for=app.window, modal=True, default_width=420))
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
-            box.append(Gtk.Label(label=app.text(key, version=version if newer else VERSION), wrap=True))
-            box.append(app.window.button('close', lambda *_: app.window.close_dialog(dialog)))
-            dialog.set_child(box)
-            dialog.present()
-    app.run_job(lambda: download_version(source), done, title_key='checking_version', cancellable=False)
+def refresh_updates(app):
+    for dialog in app.window.dialogs[:]:
+        if dialog.get_name()!='settings_dialog':continue
+        controls=dialog.template_controls
+        controls['update_status'].set_label(app.text(app.update_status_key))
+        newer=app.update_info and tuple(map(int,app.update_info['version'].split('.')))>tuple(map(int,VERSION.split('.')))
+        controls['download'].set_sensitive(bool(newer and app.update_info.get('deb') and not app.worker and not app.update_check_running and not app.closing))
+
+
+def check_update(app, source=None, automatic=False):
+    from .updates import release_info
+    from .model import PROJECT
+    import threading
+    if not app.window.alive or app.update_check_running:return
+    app.update_check_running=True
+    app.update_status_key='software_checking'
+    refresh_updates(app)
+    def finish(info,error):
+        if not app.window.alive:return False
+        app.update_check_running=False
+        app.update_info=info
+        if error:
+            app.update_status_key='software_check_failed'
+            logging.warning(app.text('software_check_failed'))
+        else:
+            app.rt.settings['last_update_check']=now()
+            try:app.rt.save()
+            except OSError as exc:app.fail(exc)
+            newer=tuple(map(int,info['version'].split('.')))>tuple(map(int,VERSION.split('.')))
+            app.update_status_key='software_update' if newer else 'software_current'
+        refresh_updates(app)
+        return False
+    def worker():
+        try:info,error=release_info(PROJECT['update_url']),None
+        except Exception as exc:info,error=None,exc
+        GLib.idle_add(finish,info,error)
+    threading.Thread(target=worker,daemon=True).start()
+
+
+def download_available(app):
+    from .updates import download_update
+    from .jobs import JobContext
+    if app.worker or app.update_check_running or not app.update_info:return False
+    info=app.update_info
+    if not info.get('deb') or tuple(map(int,info['version'].split('.')))<=tuple(map(int,VERSION.split('.'))):return False
+    def task():
+        from .jobs import Cancelled
+        try:return download_update(info,JobContext(app.cancel_event,lambda current,total:app.progress('progress',(current,total))))
+        except Cancelled:raise
+        except Exception:raise ValueError(app.text('update_download_error')) from None
+    return app.run_job(task,lambda path:app.set_status('update_downloaded',path=str(path)),title_key='update_download')

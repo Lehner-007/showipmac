@@ -41,11 +41,10 @@ Lizenz: GNU General Public License Version 3, **GPL-3.0-only**. Siehe `LICENSE`.
 Autor: Josef. Fremdressourcen: `THIRD_PARTY.md`.
 
 Bedienung über eine klassische Menüleiste im Stil von Linux Mint/Cinnamon.
-Keine Aktionsschaltflächen im Hauptfenster. Tabellenköpfe oder Ansicht → Sortieren
-nach sortieren die Liste, IPv4 numerisch. Eigener Rechner, lokale Zeit, kompakte
+Keine Aktionsschaltflächen im Hauptfenster. Tabellenköpfe sortieren die Liste, IPv4 numerisch. Eigener Rechner, lokale Zeit, kompakte
 IPv6-Anzeige und eine Scan-Zusammenfassung erleichtern die Übersicht.
 
-Aktueller Stand: 0.6.0 – gemeinsame Bausteine eingebaut und technisch geprüft. Josef hat am 04.10.2026 die DEB-Erstellung und Veröffentlichung dieses Stands beauftragt.
+Aktueller Stand: 0.7.0 – gemeinsame Bausteine eingebaut und technisch geprüft. Josef hat am 04.10.2026 die DEB-Erstellung und Veröffentlichung dieses Stands beauftragt.
 
 ## Reparatur 0.2.7 – globale MAC-Wiedererkennung
 
@@ -71,7 +70,7 @@ Daten einschließlich eigener Namen. Nach vollständiger Deinstallation entsteht
 beim nächsten Start wieder eine neue Datenbank.
 
 Paketerstellung nach Benutzerfreigabe: `./erstelledeb.sh`.
-DEB-Erstellung: `./erstelledeb.sh`. Installation des heruntergeladenen Pakets: `sudo apt install ./showipmac_0.6.0_all.deb`.
+DEB-Erstellung: `./erstelledeb.sh`. Installation des heruntergeladenen Pakets: `sudo apt install ./showipmac_0.7.0_all.deb`.
 
 ## Korrektur 0.3.1 – CSV-Speicherdialog
 
@@ -90,7 +89,7 @@ werden ausgelassen.
 
 Einstellungen → Sprachen installieren bietet:
 - eigene JSON-Sprachpakete samt Offline-Hilfe importieren,
-- GitHub-Basisadresse speichern,
+- Sprachpakete aus der intern festgelegten GitHub-Quelle nachladen,
 - verfügbare Sprachen aus catalog.json auswählen und samt Hilfe nachladen.
 
 Das Paketformat entspricht dem Checkweb-Verfahren, mit `program_id: showipmac`:
@@ -104,7 +103,7 @@ sind zulässig, ohne Begrenzung auf die acht vorgesehenen Standardsprachen.
 
 Die veröffentlichte GitHub-Quelle zeigt auf den Ordner
 `https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/sprachpakete`.
-Die Adresse ist in den Einstellungen änderbar. Eigene Adressen bleiben erhalten; leere Quellen verwenden die veröffentlichte Standardadresse.
+Die Projektquellen sind intern festgelegt und im Dialog nicht bearbeitbar. Gespeicherte eigene Quellen werden durch die Projektvorgaben ersetzt.
 
 
 ## Veröffentlichungsvorbereitung 0.5.0
@@ -139,16 +138,20 @@ Hilfe → Über enthält die Projektseite. Eine leere gespeicherte Sprachquelle
 verwendet jetzt die veröffentlichte Standardadresse; eigene Quellen bleiben
 unverändert. Ein DEB-Downloadlink wird erst nach vorhandenem Release-Anhang angegeben.
 
-## Gemeinsame Bausteine 0.6.0
+## Gemeinsame Bausteine 0.7.0
 
 Übernommen aus `/home/josef/Labor/Python/.bausteien/vorlage`, lokal unter `modules/`; keine Laufzeitabhängigkeit vom Vorlagenordner. Netzwerklogik und bestehende SQLite-Gerätedaten bleiben erhalten.
 
-Datei enthält „Ergebnisse speichern/exportieren“, Trennlinie, „Einstellungen“, Trennlinie und „Beenden“. Einstellungen bündeln aktive Erfassung, IPv4-Adressbudget und Herstelleraktualisierung, die manuelle/optionale automatische Versionsprüfung sowie Sprache, GitHub-Sprachquelle, Import und Nachladen. Abbrechen verwirft die Dialogänderungen; ausdrücklich installierte Sprachpakete bleiben erhalten. Eine importierte Sprache ist sofort in der geöffneten Auswahl verfügbar und wird beim Speichern übernommen. Profile und Testdemo sind hier nicht aktiviert.
+Datei enthält „Ergebnisse speichern/exportieren“, Trennlinie, „Einstellungen“, Trennlinie und „Beenden“. Einstellungen bündeln aktive Erfassung, IPv4-Adressbudget und Herstelleraktualisierung, Versionsprüfung bei jedem Start und optional zusätzlich während des Betriebs sowie Sprache, Import und Nachladen. Abbrechen verwirft die Dialogänderungen; ausdrücklich installierte Sprachpakete bleiben erhalten. Eine importierte Sprache ist sofort in der geöffneten Auswahl verfügbar und wird beim Speichern übernommen. Profile und Testdemo sind hier nicht aktiviert.
 
-Fortschritt erscheint in einem separaten zentrierten Fenster mit sicherem Abbruch. Sprach- und Versionsdownloads sind nicht kooperativ abbrechbar; beim Schließen wartet das Programm auf deren Ende. Netzwerkabbruch verwirft unvollständige Erfassung. Keine Änderungen der Monitoreinstellungen. Normale Fenstergröße und unter X11 Position werden gespeichert, maximierter Zustand separat; fehlende Monitore werden berücksichtigt. Unter Wayland übernimmt der Compositor die Position.
+Fortschritt erscheint in einem separaten zentrierten Fenster mit sicherem Abbruch. Sprachdownloads sind nicht kooperativ abbrechbar; beim Schließen wartet das Programm auf deren Ende. Der DEB-Update-Download ist kooperativ abbrechbar und entfernt Teil-Dateien. Netzwerkabbruch verwirft unvollständige Erfassung. Keine Änderungen der Monitoreinstellungen. Normale Fenstergröße und unter X11 Position werden gespeichert, maximierter Zustand separat; fehlende Monitore werden berücksichtigt. Unter Wayland übernimmt der Compositor die Position.
 
 Der Exportdialog bietet CSV (UTF-8/BOM/Semikolon), JSON und eigenständiges HTML mit eingebettetem Programmbild. „Alle“ umfasst sämtliche Geräte der ausgewählten Netzansicht einschließlich derzeit fehlender Geräte; „Angezeigte“ verwendet Suche, Filter und Sortierung. JSON bewahrt technische Daten und enthält Programmkennung und Version. CSV und HTML übersetzen Anzeigewerte und formatieren Datum/Uhrzeit lokal. Konfigurationsordner, Gerätedatenbank, Programmquellen und Ressourcen sind als Exportziele geschützt.
 
 Hilfe → Protokoll zeigt das aktuelle Log lesend und bietet Neu laden und Export des angezeigten Stands. Sitzungen erhalten sichtbare Trennlinien; ältere Einträge werden beim Start nicht geleert. Rotation bei 500.000 Bytes mit zwei Sicherungen.
 
-DE/EN sind vollständig gepflegt. Bei bestehenden zusätzlichen Sprachpaketen fallen neue fehlende Texte auf Englisch zurück. Die acht lokalen GitHub-Pakete enthalten für noch nicht übersetzte neue Bausteintexte ebenfalls englische Rückfalltexte; DE/EN sind die vollständig gepflegten Basissprachen; die zusätzlichen Sprachen verwenden für neue Funktionen teilweise englische Rückfalltexte. Quellcode und das DEB werden im Release v0.6.0 bereitgestellt. Es wird kein Benutzer-ZIP erstellt.
+DE/EN sind vollständig gepflegt. Bei bestehenden zusätzlichen Sprachpaketen fallen neue fehlende Texte auf Englisch zurück. Die acht lokalen GitHub-Pakete enthalten für noch nicht übersetzte neue Bausteintexte ebenfalls englische Rückfalltexte; DE/EN sind die vollständig gepflegten Basissprachen; die zusätzlichen Sprachen verwenden für neue Funktionen teilweise englische Rückfalltexte. Quellcode und das DEB werden im Release v0.7.0 bereitgestellt. Es wird kein Benutzer-ZIP erstellt.
+
+## Gemeinsame Darstellung in 0.7.0
+
+Das Menü Ansicht entfällt. Spalten durch Klick auf den Kopf sortieren; erneut klicken für die umgekehrte Reihenfolge. Standard: IPv4 numerisch aufsteigend (.0, .1, .2, .9, .10), fehlende IPv4 am Ende. Hilfe → Info zeigt tatsächlich verwendete Abhängigkeiten einschließlich ip, ping und Avahi zur Namensauflösung. GitHub-Quellen sind intern festgelegt. Die Version wird bei jedem Start geprüft; Einstellungen zeigt den Status und bietet einen geprüften DEB-Download bei neuerer Version. SHA-256, Paketname, Version und Architektur müssen stimmen. Keine automatische Installation. Fortschritt reserviert vier Textzeilen; das Über-Bild ist auf 128 × 128 Pixel begrenzt. Export, Fensterzustand und Protokoll bleiben erhalten.

@@ -104,7 +104,7 @@ def create_application(runtime):
             self.status_key = 'ready'
             self.status_args = {}
             self.warning_keys = list(runtime.warnings)
-            self.sort_column = 'name'
+            self.sort_column = 'ipv4'
             self.sort_reverse = False
             self.actions = {}
             self.connect('activate', self.activate)
@@ -243,6 +243,11 @@ def create_application(runtime):
             if hasattr(self.window, 'bindings'):
                 for widget, method, key in self.window.bindings:
                     getattr(widget, method)(self.text(key))
+            if hasattr(self,'update_check_running'):
+                from modules.integration import refresh_updates
+                refresh_updates(self)
+                for dialog in self.window.dialogs[:]:
+                    if hasattr(dialog,'refresh_info'):dialog.refresh_info()
             if self.progress_dialog:
                 self.progress_dialog.set_title(self.text('progress_title'))
                 self.progress_dialog.task_label.set_label(self.text(self.job_title_key))
@@ -278,7 +283,7 @@ def create_application(runtime):
                          'csv': lambda: self.export_dialog('csv'), 'json': lambda: self.export_dialog('json'),
                          'help': self.open_help, 'about': self.about, 'quit': self.on_close,
                          'network_info': self.network_info, 'settings': self.settings_dialog,
-                         'results_export': self.export_results, 'log': self.show_log}
+                         'results_export': self.export_results, 'log': self.show_log, 'info': self.show_info}
             callbacks['language_install'] = self.language_settings
             for name, callback in callbacks.items():
                 action = Gio.SimpleAction.new(name, None)
@@ -324,14 +329,11 @@ def create_application(runtime):
                 file_menu.append_section(None, section)
             group('menu_network', ['start', 'cancel', 'refresh', 'network_info'])
             group('menu_devices', ['details', 'merge'])
-            view = group('menu_view', [])
-            sorting = Gio.Menu()
-            for key, _width in self.columns:
-                item = Gio.MenuItem.new(self.text(key) + (' ↓' if self.sort_reverse else ' ↑') if key == self.sort_column else self.text(key), None)
-                item.set_action_and_target_value('app.sort', GLib.Variant('s', key))
-                sorting.append_item(item)
-            view.append_section(self.text('sort_by'), sorting)
-            group('help', ['help', 'log', 'about'])
+            help_menu = group('help', ['help', 'log'])
+            item = Gio.MenuItem.new(self.text('info'),'app.info')
+            item.set_icon(Gio.ThemedIcon.new('dialog-information-symbolic'))
+            help_menu.append_item(item)
+            help_menu.append(self.text('about'),'app.about')
             self.menu_bar.set_menu_model(root)
             from modules.menus import compact_menus
             compact_menus(self.menu_bar)
@@ -479,6 +481,9 @@ def create_application(runtime):
             self.network_select.set_sensitive(not yes)
             self.actions['start'].set_enabled(not yes and self.selected_network() is not None)
             self.actions['cancel'].set_enabled(yes and self.jobs.cancellable)
+            if hasattr(self,'update_check_running'):
+                from modules.integration import refresh_updates
+                refresh_updates(self)
 
         def run_job(self, function, done, *, title_key='loading', cancellable=True):
             if self.worker or self.closing:
@@ -495,7 +500,8 @@ def create_application(runtime):
                           margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
             dialog.set_child(box)
             dialog.task_label = Gtk.Label(label=self.text(title_key), wrap=True, xalign=0)
-            box.append(dialog.task_label)
+            from modules.windows import append_progress_text
+            append_progress_text(box,dialog.task_label)
             dialog.progress = Gtk.ProgressBar(show_text=True)
             box.append(dialog.progress)
             dialog.cancel_button = Gtk.Button(label=self.text('cancel'), sensitive=cancellable)
@@ -808,6 +814,10 @@ def create_application(runtime):
                     webbrowser.open(path.as_uri())
                     return
 
+        def show_info(self, *_):
+            from modules.tool_info import show_tool_info
+            return show_tool_info(self.window)
+
         def about(self, *_):
             native_language(self.rt.settings['language'])
             dialog = Gtk.AboutDialog(transient_for=self.window, modal=True,
@@ -816,7 +826,9 @@ def create_application(runtime):
                                      license_type=Gtk.License.GPL_3_0_ONLY,
                                      website=PROJECT_URL, website_label='GitHub · showipmac')
             dialog.add_css_class('showipmac')
-            dialog.set_logo(Gdk.Texture.new_from_filename(str(ROOT / 'assets/showipmac.png')))
+            from gi.repository import GdkPixbuf
+            logo=GdkPixbuf.Pixbuf.new_from_file_at_scale(str(ROOT / 'assets/showipmac.png'),128,128,True)
+            dialog.set_logo(Gdk.Texture.new_for_pixbuf(logo))
             dialog.present()
             return dialog
 

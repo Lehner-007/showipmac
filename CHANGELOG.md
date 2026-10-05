@@ -1,3 +1,11 @@
+# 0.7.0
+
+- Menü Ansicht entfernt; Standard-Sortierung IPv4 numerisch aufsteigend.
+- Spaltenkopf-Sortierung in der Hilfe dokumentiert.
+- Hilfe → Info für verwendete Werkzeuge und Abhängigkeiten.
+- Versionsprüfung bei jedem Start und geprüfter DEB-Download; interne GitHub-Quellen.
+- Vier stabile Fortschrittstextzeilen und begrenztes Über-Bild.
+
 # Änderungen
 
 ## 0.6.0 – 04.10.2026

@@ -66,25 +66,22 @@ def show_settings(self, *_):
     row.append(unit)
     box.append(row)
     box.append(self.label('update_interval_help', xalign=0, wrap=True))
-    box.append(self.label('update_url', xalign=0, wrap=True))
-    update_url = Gtk.Entry(text=self.opts['update_url'])
-    box.append(update_url)
-    box.append(self.button('update_now', lambda *_: self.check_update(update_url.get_text().strip())))
+    status=self.label('software_checking',xalign=0,wrap=True)
+    box.append(status)
+    download=self.button('update_download',lambda *_:self.download_update())
+    box.append(download)
     group('language_extensions')
     box.append(self.label('language', xalign=0))
     box.append(language)
-    box.append(self.label('source_url', xalign=0, wrap=True))
-    source = Gtk.Entry(text=self.opts['source_url'])
-    box.append(source)
     box.append(self.button('import_language', lambda *_: self.import_language(window, refresh)))
-    box.append(self.button('download_language', lambda *_: self.download_language(source.get_text().strip(), window, refresh)))
+    box.append(self.button('download_language', lambda *_: self.download_language(PROJECT['source_url'], window, refresh)))
     def save(*_):
         new = self.opts.copy()
         interval.update()
         new.update(language=codes[language.get_selected()], update_check=automatic.get_active(),
                    update_interval_value=interval.get_value_as_int(),
-                   update_interval_unit=units[unit.get_selected()], update_url=update_url.get_text().strip(),
-                   source_url=source.get_text().strip())
+                   update_interval_unit=units[unit.get_selected()], update_url=PROJECT['update_url'],
+                   source_url=PROJECT['source_url'])
         for key, widget in controls.items():
             if isinstance(widget, Gtk.SpinButton):
                 widget.update()
@@ -111,8 +108,9 @@ def show_settings(self, *_):
     layout.append(footer)
     # Prüfzugang und Erweiterungspunkt für Projekte.
     window.template_controls = dict(language=language, codes=codes, fields=controls,
-                    interval=interval, unit=unit, update_url=update_url, source_url=source,
+                    interval=interval, unit=unit, update_status=status, download=download,
                     automatic=automatic, save=save_button, cancel=cancel)
+    self.refresh_updates()
     window.present()
     return window
 

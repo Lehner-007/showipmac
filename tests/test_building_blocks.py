@@ -34,6 +34,8 @@ def pump(seconds=.2):
 
 class SharedTests(unittest.TestCase):
     def setUp(self):
+        startup=patch("modules.integration.initial_update",lambda *_:None)
+        startup.start();self.addCleanup(startup.stop)
         self.temp = tempfile.TemporaryDirectory(dir=ROOT / 'work', prefix='blocks-')
         self.path = Path(self.temp.name)
         self.rt = Runtime(self.path / 'profile')
@@ -79,7 +81,7 @@ class SharedTests(unittest.TestCase):
         self.assertFalse(update_due(self.rt.settings))
         self.rt.settings['update_check'] = True
         self.assertTrue(update_due(self.rt.settings))
-        with patch('languages.download_version', return_value='99.0.0'):
+        with patch('modules.updates.release_info', return_value={'version':'99.0.0','deb':None}):
             app.window.check_update(self.rt.settings['update_url']); pump(.5)
         self.assertTrue(self.rt.settings['last_update_check'])
         self.assertFalse(update_due(self.rt.settings))

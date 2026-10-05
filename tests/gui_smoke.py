@@ -41,7 +41,7 @@ def pump():
    assert len(app.devices)==1
    app.listbox.select_row(app.listbox.get_row_at_index(0))
    app.change_language('en')
-   assert app.menu_bar.get_menu_model().get_n_items()==5
+   assert app.menu_bar.get_menu_model().get_n_items()==4
    assert app.network_select.get_model().get_string(0)=='192.0.2.0/27 — virtual → qa0'
    assert len(app.listbox.get_selected_rows())==1
    app.search.set_text('Printer')
@@ -110,6 +110,7 @@ def pump():
    dialog=next(w for w in Gtk.Window.list_toplevels() if w is not app.window)
    dialog.confirm_button.emit('clicked')
    assert len(app.store.devices(network.scope))==1
+   app.choose_sort('name')
    app.choose_sort('ipv4')
    assert app.sort_column=='ipv4' and not app.sort_reverse
    app.choose_sort('ipv4')

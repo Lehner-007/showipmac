@@ -24,7 +24,7 @@ with tempfile.TemporaryDirectory(dir=ROOT/'work',prefix='release-languages-') as
    code=codes[index];app.change_language(code)
    assert app.window.get_direction()==(Gtk.TextDirection.RTL if code=='ar' else Gtk.TextDirection.LTR)
    assert app.window.get_title().startswith(app.text('title'))
-   assert app.menu_bar.get_menu_model().get_n_items()==5
+   assert app.menu_bar.get_menu_model().get_n_items()==4
    with patch('showipmac.webbrowser.open') as browser:
     app.open_help()
     selected=path/f'languages/{code}/help.html' if code not in ('de','en') else ROOT/f'help/{code}/index.html'

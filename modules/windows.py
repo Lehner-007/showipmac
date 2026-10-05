@@ -90,3 +90,17 @@ def center_after_map(dialog, parent):
             center_on_parent(dialog, parent)
         return False
     GLib.timeout_add(100, position)
+
+
+def append_progress_text(box,label):
+    from gi.repository import Gtk,Pango
+    label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+    label.set_width_chars(50)
+    label.set_yalign(0)
+    context=label.get_pango_context()
+    metrics=context.get_metrics(context.get_font_description(),context.get_language())
+    height=4*((metrics.get_ascent()+metrics.get_descent()+Pango.SCALE-1)//Pango.SCALE)
+    scroll=Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,min_content_height=height,max_content_height=height)
+    scroll.set_child(label)
+    box.append(scroll)
+    return scroll

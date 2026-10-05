@@ -56,8 +56,8 @@ class Runtime:
             except (ValueError, OSError):
                 self.warnings.append('config_error')
                 self.bad_config = True
-        if not self.settings['source_url'].strip():
-            self.settings['source_url'] = LANGUAGE_SOURCE_URL
+        self.settings['source_url'] = LANGUAGE_SOURCE_URL
+        self.settings['update_url'] = VERSION_INFO_URL
         self.reload_languages()
         if self.settings['language'] not in self.languages:
             self.settings['language'] = 'en'

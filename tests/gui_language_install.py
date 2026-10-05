@@ -26,7 +26,8 @@ with tempfile.TemporaryDirectory(dir=ROOT/'work',prefix='language-gui-') as dire
     assert app.lookup_action('language_install')
     settings=app.language_settings()
     from core import LANGUAGE_SOURCE_URL
-    assert settings.template_controls['source_url'].get_text()==LANGUAGE_SOURCE_URL
+    assert 'source_url' not in settings.template_controls
+    assert app.rt.settings['source_url']==LANGUAGE_SOURCE_URL
     settings.destroy()
     about=app.about();assert about.get_website()=='https://github.com/Lehner-007/showipmac';about.destroy()
     app.search.set_text('retain search')

@@ -90,7 +90,7 @@ class LanguagePackTests(unittest.TestCase):
         self.assertEqual(Runtime(self.path).settings['source_url'],LANGUAGE_SOURCE_URL)
         custom='https://raw.githubusercontent.com/example/custom/main/packs'
         self.path.joinpath('settings.json').write_text(json.dumps({'source_url':custom}))
-        self.assertEqual(Runtime(self.path).settings['source_url'],custom)
+        self.assertEqual(Runtime(self.path).settings['source_url'],LANGUAGE_SOURCE_URL)
 
     def test_download_size_timeout_and_redirect(self):
         from unittest.mock import MagicMock
