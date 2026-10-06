@@ -1,65 +1,100 @@
 SEITE
-ID: hilfe
-
+ID: index
 META
 SPRACHE: en
 STATUS: pruefung
-VERSION: 1.14
+VERSION: 2.0
 ERSTELLT: 29.09.2026
-GEAENDERT: 05.10.2026
-
+GEAENDERT: 06.10.2026
 TITEL
 showipmac – Help
-
 INHALT
+![showipmac](../assets/showipmac.png)
+
+Open help with F1 or from Help → Help.
+
 ## Select a network
+
 Select the automatically calculated IPv4 subnet in CIDR notation. The selector shows the subnet, reliably detected connection type (LAN, Wi-Fi or virtual) and Linux interface name. Multiple connections on the same subnet remain separate choices. Multiple detected LAN interfaces are ordered by name and labelled LAN 1, LAN 2, etc.; these are application labels, not hardware socket numbers. Unknown connection types are omitted. Interfaces, local addresses and IPv6 metadata are retained internally and are available under Network → Network details, including virtual-interface information. An interface with several IPv4 subnets has one entry per subnet. Interfaces without an IPv4 subnet are excluded from the scan selector. They remain accessible in the interface selector under Network → Network details. Virtual networks with an IPv4 subnet remain selectable. A virtual machine can only see networks reachable from that VM.
 
 ## Discovery and limitations
+
 Network → Start scan (F5) examines the selected IPv4 subnet and the directly configured IPv6 networks on its interface. Cancel is also in the Network menu (Esc). Active discovery can be toggled in Settings. Active discovery pings IPv4 addresses and already observed IPv6 neighbors. Each route is checked before pinging: targets through a gateway are skipped. Without active discovery only local neighbor tables are read. Large IPv4 subnets exceeding the configured budget are not fully probed; a warning explains this. IPv6 is not fully enumerated. Firewalls, sleeping devices and lack of traffic can hide devices. Stale neighbors may remain visible. A scan does not prove reachability or completeness.
 
 ## Cancellation and saving
+
 The interface remains responsive. Cancel terminates current probes and discards the incomplete scan. Closing the application first cancels ongoing work. Only completed scans update the SQLite device database. Network changes during a scan prevent committing its results. Cancelling vendor downloads may take until the next network timeout.
 
 ## Devices and recognition
-IPv4 and IPv6 observations with the same MAC are grouped within the selected network. This is a plausible association, not proof of identity. MAC addresses may change, be reused or spoofed. A new MAC is not linked to an existing device simply because its IP or hostname matches. Locally administered MAC addresses are explicitly marked as uncertain. Select two known entries with Ctrl + click to merge them after confirmation. Selecting a single device also allows merging with stored devices from other network interfaces. The first custom name is retained, or the second if the first is empty. Additional custom names are preserved in Details. Only “Merge” confirms the change; “Cancel” leaves all data unchanged. All observations remain available in Details.
+
+The stored MAC address is used globally for recognition, including changes of local scan interface or IP address. IPv4 and IPv6 observations with the same MAC belong to the same entry; network views remain separate. This is a plausible association, not proof of identity. MAC addresses may change, be reused or spoofed. A new MAC is not linked to an existing device simply because its IP or hostname matches. Locally administered MAC addresses are explicitly marked as uncertain. Select two known entries with Ctrl + click to merge them after confirmation. Selecting a single device also allows merging with stored devices from other network interfaces. The first custom name is retained, or the second if the first is empty. Additional custom names are preserved in Details. Only “Merge” confirms the change; “Cancel” leaves all data unchanged. All observations remain available in Details.
 
 ## Custom names for devices and connections
+
 Select a device entry and open Devices → Details / name. Enter a distinctive label under “Custom name” and confirm with “Save”. Naming is optional but makes entries easier to recognize. The wired and Wi-Fi connections of the same device normally have different MAC addresses and therefore appear as separate entries. For example, name them “My PC – LAN” and “My PC – Wi-Fi”. The name belongs to the saved device entry; it does not change the hostname on the device. Custom names remain available after closing the application and during later scans. The “Not currently found” filter also displays these names: it contains saved devices that were not detected in the last completed scan of the selected network. The filter does not delete or change data. When a saved entry is detected again, it appears as “Known”. A changed MAC address may create a new entry; the custom name is not automatically transferred to it.
 
 ## Status and history
-New: first observed in this network in the most recent scan. Known: seen in a previous scan. Not currently found: absent from the latest scan; this does not prove the device is switched off. Details show first and last seen, all previous addresses, interfaces, neighbor states and network scopes. Timestamps are stored in UTC with timezone information. All interface languages display dates as DD.MM.YYYY and timestamps in local time as DD.MM.YYYY HH:MM:SS. CSV uses the same date format; machine-readable JSON retains ISO timestamps. Set custom names under Devices → Details / name. “This computer” marks the local computer without creating another device. Multiple IPv6 addresses are shown as a count; Details retains every address. Long vendor names are shortened in the table and fully shown in Details. The scan summary counts found, new and known devices.
+
+New: MAC address first observed in the entire device database in the most recent scan. Known: seen in a previous scan. Not currently found: absent from the latest scan; this does not prove the device is switched off. Details show first and last seen, all previous addresses, interfaces, neighbor states and network scopes. Timestamps are stored in UTC with timezone information. All interface languages display dates as DD.MM.YYYY and timestamps in local time as DD.MM.YYYY HH:MM:SS. CSV uses the same date format; machine-readable JSON retains ISO timestamps. Set custom names under Devices → Details / name. “This computer” marks the local computer without creating another device. Multiple IPv6 addresses are shown as a count; Details retains every address. Long vendor names are shortened in the table and fully shown in Details. The scan summary counts found, new and known devices.
 
 ## Vendor data
+
 The separate local database uses IEEE MA-L, MA-M, MA-S and IAB registries. The longest matching prefix wins. The vendor remains unknown for locally administered MAC addresses. OUI identifies a registered organization, not the device model, type or retail brand. Bundled data comes from ieee-data dated 2022-08-27; this is the package file date, not a claim of current IEEE data. Update vendor data downloads the four complete lists directly from IEEE over HTTPS. Individual MAC addresses and device lists are never uploaded. Failed downloads preserve the previous database and show a readable error. After validating all four lists, the application displays the source date supplied by IEEE. If a source timestamp is missing, only the download time is explicitly shown. Updates occur solely through Settings → Update vendor data.
 
 ## Search and export
+
 All program actions are available from the classic menu bar. Help → About shows the native information dialog with the showipmac logo, version, license and credits. The watermark is centered in the results area. Click column headings to sort, or choose the columns directly listed under View → Sort by. Selecting the same column again reverses the order. IPv4 addresses are sorted numerically. Search covers names, addresses and saved observations. The status filter narrows the list further. File → Export CSV exports the currently visible devices in UTF-8 with BOM; potential spreadsheet formulas receive a protective apostrophe. JSON additionally includes complete observation history and stable technical keys. Exported files contain personal network data; choose their location deliberately.
 
 ## Settings, languages and files
-Development settings live in .config/settings.json, devices in .config/devices.sqlite3, updated vendor data in .config/vendors.json and bounded logs in .config/logs. --data-dir selects a separate data directory. German and English and their help work offline. Settings → Language changes the language immediately. Hostnames come from configured system name resolution (NSS). If available, avahi-resolve-address provides an additional mDNS fallback; names are never guessed. Additional local JSON translations in <data directory>/lang with a language_name field are detected at startup; help belongs in <data directory>/help/<language code>/index.html. English is the fallback language. Damaged settings are kept as diagnostic copies. Language packs and version metadata are now available on GitHub.
+
+Development settings live in .config/settings.json, devices in .config/devices.sqlite3, updated vendor data in .config/vendors.json and bounded logs in .config/logs. --data-dir selects a separate data directory. German and English and their help work offline. File → Settings → Language applies the selected language immediately when saved. Hostnames come from configured system name resolution (NSS). If available, avahi-resolve-address provides an additional mDNS fallback; names are never guessed. Additional local JSON translations in <data directory>/lang with a language_name field are detected at startup; help belongs in <data directory>/help/<language code>/index.html. English is the fallback language. Damaged settings are kept as diagnostic copies. Language packs and version metadata are now available on GitHub.
 
 ## License
+
 Original program code: GNU General Public License version 3 (GPL-3.0-only), full text in LICENSE. Author: Josef. IEEE data provenance and licensing are documented in THIRD_PARTY.md and vendor/ieee-data-copyright.txt. No telemetry, device logins or password attempts.
 
-When the custom name is unknown or empty, an available hostname is copied automatically, including for previously saved devices at startup. You can still edit the name. Subsequent scans do not overwrite an existing custom name. The DEB does not contain the development device database; a fresh installation creates an empty database on first launch under ~/.config/showipmac (or $XDG_CONFIG_HOME/showipmac). Updates and reinstalls retain devices and custom names.
+## Custom names and installation
 
-File → Database export contains Export CSV and Export JSON. Both exports contain currently visible devices found in the last scan (New or Known). Devices not currently found are excluded. No separate database window is opened.
+When the custom name is unknown or empty, an available hostname is copied automatically, including for previously saved devices at startup. You can still edit the name. Subsequent scans do not overwrite an existing custom name. The DEB does not contain the development device database; a fresh installation creates an empty database on first launch under ~/.config/showipmac (or $XDG_CONFIG_HOME/showipmac). Updates and reinstalls retain devices and custom names.
 
 The save dialog opens in the project directory, or in the home directory for an installed application. Choose a destination and confirm with Save. Cancel does not create a file.
 
 ## Install languages
-Settings → Install languages provides a GitHub base URL, Import language pack and Download language and help. Custom UTF-8 JSON packs require program_id "showipmac", code, name, strings and help_html. Missing translation keys fall back to English; provided keys and placeholders must match. DE/EN cannot be replaced by packs. Imported packs are saved under languages/<code>/ in the user profile and selected immediately. Their help works offline. Downloads read catalog.json and hide installed languages. The <code>.json file is downloaded only after explicit selection. The GitHub URL can be saved; local imports work without a URL. Only HTTPS GitHub URLs are accepted. Invalid, oversized, foreign or already installed packs are rejected. Eight additional language and help packs are prepared separately for GitHub. The published GitHub source is available and remains editable in Settings.
+
+File → Settings → Additional languages and help provides Import language pack and Download language and help. Custom UTF-8 JSON packs require program_id "showipmac", code, name, strings and help_html. Missing translation keys fall back to English; provided keys and placeholders must match. DE/EN cannot be replaced by packs. Imported packs are saved under languages/<code>/ in the user profile and immediately available in the language selector; saving applies the selected language. Their help works offline. Downloads read catalog.json and hide installed languages. The <code>.json file is downloaded only after explicit selection. The GitHub source is fixed internally; local imports remain available. Only HTTPS GitHub URLs are accepted. Invalid, oversized, foreign or already installed packs are rejected. Eight additional language and help packs are prepared separately for GitHub. The published GitHub source is fixed internally.
 
 A device can have multiple MAC addresses, for example two LAN and one Wi-Fi. First merge LAN 1 and LAN 2, then merge the combined entry with Wi-Fi. All MAC addresses and observations remain saved; new MAC addresses require manual association.
 
 ## GitHub
-[showipmac](https://github.com/Lehner-007/showipmac)
-[Python source ZIP](https://github.com/Lehner-007/showipmac/archive/refs/heads/main.zip)
-[Releases](https://github.com/Lehner-007/showipmac/releases)
-[Language packs](https://github.com/Lehner-007/showipmac/tree/main/github/sprachpakete)
 
-ENDE
+- showipmac
+
+- Python · ZIP
+
+- Releases
+
+- Language packs
+
+## Shared controls since 0.6.0
+
+File → Settings combines active discovery, the IPv4 address budget, vendor updates, version checks and languages. Cancel discards unsaved changes; deliberately imported language packs remain installed. Language selection and language packs share one section.
+
+Work appears in a centered progress window. Cancel safely stops discovery; it is disabled for language and version downloads. Closing the application waits for the actual end of work.
+
+File → Save/export results offers CSV, JSON and HTML. All results includes missing devices in the selected network view; displayed results follows search, filtering and sorting. CSV uses semicolons and UTF-8 with BOM. HTML works offline; JSON contains technical records, program ID and version. Export cannot overwrite the device database or application files.
+
+Help → Log displays the log read-only and can export its visible contents. Previous entries remain until rotation; sessions have visible separators. Window size and X11 position are restored with recovery when a monitor is missing.
 
 ## Storage
+
 The bundled IEEE vendor lists were updated on 05.10.2026. Invalid vendor files are preserved; the application reports the error and starts with the bundled lists. Updating vendor data remains an explicit user action. Multiple instances save complete settings snapshots: the last completed write wins; changes are not merged.
+
+## Sorting and updates
+
+Click any column header to sort; click again to reverse the order. The default is ascending numeric IPv4 order, for example .0, .1, .2, .9, .10. Devices without IPv4 appear last. Help → Info shows used tools, availability, versions and APT packages. Settings shows software status; updates are checked at every startup. A newer version can be downloaded to Downloads, with SHA-256, package name, version and architecture verification. Installation remains manual. GitHub sources are fixed internally.
+
+## Discovery sources and changes
+
+Device details distinguish preexisting neighbor cache, neighbor records first collected during the scan and the local computer. Collection time does not prove a response. Technical names retain their source: NSS (exact service unknown), mDNS/Avahi or local; user names are preserved. Two MACs sharing an IP in the same completed scan on the same interface are reported as a possible conflict (proxy ARP is also possible). Earlier DHCP assignments are not current conflicts. New scan snapshots compare addresses and names; absent devices show the number of comparable scans without a record. Other networks do not count. Network details read IPv4/IPv6 routes and gateways plus resolvectl data, with a limited resolv.conf fallback. No gateway is contacted. Existing databases are extended without losing data; older discovery/name sources remain unknown. Changes and conflicts are flagged in the result list; details and JSON include observations.
+
+ENDE
