@@ -4,9 +4,9 @@ ID: hilfe
 META
 SPRACHE: de
 STATUS: pruefung
-VERSION: 1.13
+VERSION: 1.14
 ERSTELLT: 29.09.2026
-GEAENDERT: 02.10.2026
+GEAENDERT: 05.10.2026
 
 TITEL
 showipmac – Hilfe
@@ -60,3 +60,6 @@ Ein Gerät kann mehrere MAC-Adressen haben: beispielsweise zwei LAN und eine WLA
 [Sprachpakete / Language packs](https://github.com/Lehner-007/showipmac/tree/main/github/sprachpakete)
 
 ENDE
+
+## Speicherung
+Die gebündelten IEEE-Herstellerlisten wurden am 05.10.2026 aktualisiert. Ungültige Herstellerdateien bleiben erhalten; das Programm meldet den Fehler und startet mit den gebündelten Listen. Die Herstelleraktualisierung bleibt eine bewusste Benutzeraktion. Mehrere Instanzen speichern vollständige Einstellungsstände: Der zuletzt vollständig abgeschlossene Schreibvorgang gewinnt; Änderungen werden nicht zusammengeführt.

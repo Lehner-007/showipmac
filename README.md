@@ -1,3 +1,11 @@
+## Aktueller Stand 0.8.0 – 06.10.2026
+
+Eindeutige temporäre JSON-Dateien mit kontrollierter Bereinigung; validierte Herstellerdateien und kontrollierter Rückfall auf gebündelte IEEE-Daten; Veröffentlichungstest und Großnetztest korrigiert; acht Sprach-/Hilfepakete nachgepflegt; IEEE-Listen vom 05.10.2026.
+
+Gerätedetails unterscheiden vorhandenen Nachbarcache, erstmals im Scan erfasste Nachbareinträge und den eigenen Rechner. Die Erfassungszeit beweist keine Antwort. Technische Namen behalten die Quelle NSS (konkreter Dienst unbekannt), mDNS/Avahi oder lokal; eigene Namen bleiben erhalten. Zwei MACs mit derselben IP im selben abgeschlossenen Scan auf derselben Schnittstelle werden als möglicher Konflikt gemeldet (auch Proxy-ARP möglich). Frühere DHCP-Zuordnungen zählen nicht als aktueller Konflikt. Neue Scan-Schnappschüsse vergleichen Adressen und Namen; fehlende Geräte zeigen die Anzahl vergleichbarer Scans ohne Fund. Andere Netze zählen nicht dazu. Netzwerkdetails lesen IPv4-/IPv6-Routen und Gateways sowie resolvectl-Daten mit eingeschränktem Rückfall auf resolv.conf. Es wird kein Gateway kontaktiert. Bestehende Datenbanken werden ohne Verlust ergänzt; ältere Fund- und Namensquellen bleiben unbekannt. Änderungen und Konflikte werden in der Ergebnisliste gekennzeichnet; Details und JSON enthalten die Beobachtungen.
+
+Noch nicht als DEB erstellt oder veröffentlicht. Der bisherige Release bleibt unverändert. Prüfdetails: `TESTBERICHT.md`.
+
 # showipmac
 
 GTK-4-Anwendung zur Erfassung von Geräten im ausgewählten lokalen Netzwerk.
@@ -44,7 +52,7 @@ Bedienung über eine klassische Menüleiste im Stil von Linux Mint/Cinnamon.
 Keine Aktionsschaltflächen im Hauptfenster. Tabellenköpfe sortieren die Liste, IPv4 numerisch. Eigener Rechner, lokale Zeit, kompakte
 IPv6-Anzeige und eine Scan-Zusammenfassung erleichtern die Übersicht.
 
-Aktueller Stand: 0.7.0 – gemeinsame Bausteine eingebaut und technisch geprüft. Josef hat am 04.10.2026 die DEB-Erstellung und Veröffentlichung dieses Stands beauftragt.
+Aktueller Freigabestand: 0.8.0 – gemeinsame Bausteine eingebaut und technisch geprüft. Josef hat am 04.10.2026 die DEB-Erstellung und Veröffentlichung dieses Stands beauftragt.
 
 ## Reparatur 0.2.7 – globale MAC-Wiedererkennung
 
@@ -70,7 +78,7 @@ Daten einschließlich eigener Namen. Nach vollständiger Deinstallation entsteht
 beim nächsten Start wieder eine neue Datenbank.
 
 Paketerstellung nach Benutzerfreigabe: `./erstelledeb.sh`.
-DEB-Erstellung: `./erstelledeb.sh`. Installation des heruntergeladenen Pakets: `sudo apt install ./showipmac_0.7.0_all.deb`.
+DEB-Erstellung: `./erstelledeb.sh`. Installation des heruntergeladenen Pakets: `sudo apt install ./showipmac_0.8.0_all.deb`.
 
 ## Korrektur 0.3.1 – CSV-Speicherdialog
 
@@ -150,8 +158,12 @@ Der Exportdialog bietet CSV (UTF-8/BOM/Semikolon), JSON und eigenständiges HTML
 
 Hilfe → Protokoll zeigt das aktuelle Log lesend und bietet Neu laden und Export des angezeigten Stands. Sitzungen erhalten sichtbare Trennlinien; ältere Einträge werden beim Start nicht geleert. Rotation bei 500.000 Bytes mit zwei Sicherungen.
 
-DE/EN sind vollständig gepflegt. Bei bestehenden zusätzlichen Sprachpaketen fallen neue fehlende Texte auf Englisch zurück. Die acht lokalen GitHub-Pakete enthalten für noch nicht übersetzte neue Bausteintexte ebenfalls englische Rückfalltexte; DE/EN sind die vollständig gepflegten Basissprachen; die zusätzlichen Sprachen verwenden für neue Funktionen teilweise englische Rückfalltexte. Quellcode und das DEB werden im Release v0.7.0 bereitgestellt. Es wird kein Benutzer-ZIP erstellt.
+DE/EN sind vollständig gepflegt. Bei bestehenden zusätzlichen Sprachpaketen fallen neue fehlende Texte auf Englisch zurück. Die acht GitHub-Pakete wurden für die gemeinsamen Bausteinfunktionen und die zugehörige Hilfe nachübersetzt; eine muttersprachliche Abnahme steht aus. Quellcode und das DEB werden im Release v0.8.0 bereitgestellt. Es wird kein Benutzer-ZIP erstellt.
 
 ## Gemeinsame Darstellung in 0.7.0
 
 Das Menü Ansicht entfällt. Spalten durch Klick auf den Kopf sortieren; erneut klicken für die umgekehrte Reihenfolge. Standard: IPv4 numerisch aufsteigend (.0, .1, .2, .9, .10), fehlende IPv4 am Ende. Hilfe → Info zeigt tatsächlich verwendete Abhängigkeiten einschließlich ip, ping und Avahi zur Namensauflösung. GitHub-Quellen sind intern festgelegt. Die Version wird bei jedem Start geprüft; Einstellungen zeigt den Status und bietet einen geprüften DEB-Download bei neuerer Version. SHA-256, Paketname, Version und Architektur müssen stimmen. Keine automatische Installation. Fortschritt reserviert vier Textzeilen; das Über-Bild ist auf 128 × 128 Pixel begrenzt. Export, Fensterzustand und Protokoll bleiben erhalten.
+
+Mehrere Instanzen speichern vollständige Einstellungsstände atomar. Der zuletzt vollständig abgeschlossene Schreibvorgang gewinnt; Änderungen verschiedener Instanzen werden nicht zusammengeführt. Jede Instanz hat ihre eigene temporäre Datei. Eine fehlerhafte Herstellerdatei bleibt erhalten; der Start verwendet gebündelte Herstellerdaten und meldet den Fehler.
+
+Die Paketbereinigung merkt standardmäßige und verwendete XDG-Speicherorte vor. Persönliche Starter und verlinkte Eltern bleiben geschützt; purge ermöglicht einen erneuten Versuch nach Entfernung der Programmdateien. Beliebige --data-dir-Verzeichnisse bleiben erhalten.

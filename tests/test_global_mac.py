@@ -61,7 +61,7 @@ class GlobalMacTests(unittest.TestCase):
         with self.store.db:
             self.store.db.execute('INSERT INTO devices VALUES(?,?,?,?)',
                                  ('legacy','Other name',first['first_seen'],first['last_seen']))
-            self.store.db.execute('''INSERT INTO observations SELECT 'legacy',
+            self.store.db.execute('''INSERT INTO observations (device,scope,mac,ip,interface,hostname,evidence,first_seen,last_seen,scan,first_scan) SELECT 'legacy',
                 'enp7s0|10.0.0.0/24',mac,ip,'enp7s0',hostname,evidence,
                 first_seen,last_seen,scan,first_scan FROM observations LIMIT 1''')
         second = self.scan('enp7s0')

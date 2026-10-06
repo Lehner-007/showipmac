@@ -19,6 +19,9 @@ def cell_value(device, key, text, language):
     value = device.get(key, '')
     if key == 'status':
         value = text(value)
+        if device.get('conflicts'):value+=' · '+text('conflict_hint')
+        if device.get('changed'):value+=' · '+text('changes_hint')
+        if device.get('missing_scans'):value+=' · '+str(device['missing_scans'])+' '+text('missing_scans')
     elif key == 'last_seen':
         value = local_time(value, language)
     elif key == 'ipv6' and len(value) > 1:

@@ -3,7 +3,7 @@ import json,time,threading,unittest
 from unittest.mock import patch
 from pathlib import Path
 import test_building_blocks as helpers
-from test_building_blocks import pump
+from test_building_blocks import pump,wait_until
 from core import ROOT,VERSION
 from presentation import device_sort_key
 from modules.model import PROJECT
@@ -18,7 +18,7 @@ class UpdateGuiTests(unittest.TestCase):
  def test_startup_check_without_opt_in(self):
   self.assertFalse(self.rt.settings['update_check'])
   with patch('modules.updates.release_info',return_value={'version':VERSION,'deb':None}) as fetch:
-   startup_check(self.app);pump(.25)
+   startup_check(self.app);wait_until(lambda:not self.app.update_check_running)
   fetch.assert_called_once_with(PROJECT['update_url'])
   self.assertEqual(self.app.update_status_key,'software_current')
  def test_default_sort_and_info(self):
@@ -44,9 +44,9 @@ class UpdateGuiTests(unittest.TestCase):
    app.change_language(code)
    for version,status,enabled in ((VERSION,'software_current',False),('99.0.0','software_update',True)):
     with patch('modules.updates.release_info',return_value={'version':version,'deb':{'url':'test'}}):
-     app.window.check_update();pump(.25)
+     app.window.check_update();wait_until(lambda:not app.update_check_running)
     self.assertEqual(c['update_status'].get_label(),app.text(status));self.assertEqual(c['download'].get_sensitive(),enabled)
-   with patch('modules.updates.release_info',side_effect=ValueError('wrong')):app.window.check_update();pump(.25)
+   with patch('modules.updates.release_info',side_effect=ValueError('wrong')):app.window.check_update();wait_until(lambda:not app.update_check_running)
    self.assertEqual(c['update_status'].get_label(),app.text('software_check_failed'));self.assertFalse(c['download'].get_sensitive())
   self.rt.path.joinpath('settings.json').write_text(json.dumps(dict(self.rt.settings,source_url='https://bad.invalid',update_url='https://bad.invalid')))
   opts=Runtime(self.rt.path).settings

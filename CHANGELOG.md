@@ -1,3 +1,16 @@
+# 0.8.0 – 06.10.2026
+
+- Paketbereinigung mit registrierten XDG-Speicherorten, Schutz persönlicher Starter und eigenständigem purge-Hook.
+
+- Fund- und Namensquellen mit Erfassungszeit; mögliche IP-Konflikte nur innerhalb desselben Scans.
+- Scan-Schnappschüsse, Änderungen und Anzahl passender Scans ohne Fund.
+- Lokale IPv4-/IPv6-Routen und DNS-Konfiguration, ohne Gatewaykontakt.
+- Bestehende Datenbanken und eigene Namen erhalten; DE/EN und acht zusätzliche Sprach-/Hilfepakete aktualisiert.
+
+# 0.7.1 – 05.10.2026
+
+- Eindeutige temporäre JSON-Dateien mit kontrollierter Bereinigung; validierte Herstellerdateien und kontrollierter Rückfall auf gebündelte IEEE-Daten; Veröffentlichungstest und Großnetztest korrigiert; acht Sprach-/Hilfepakete nachgepflegt; IEEE-Listen vom 05.10.2026.
+
 # 0.7.0
 
 - Menü Ansicht entfernt; Standard-Sortierung IPv4 numerisch aufsteigend.

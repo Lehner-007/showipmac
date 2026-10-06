@@ -195,7 +195,7 @@ class CoreTests(unittest.TestCase):
 
     def test_large_network_not_silently_truncated(self):
         large=Network('test0',('10.0.0.1/8',),NET.mac,True)
-        with patch('core.discover_networks',return_value=[large]),patch('core.neighbors',return_value=[]),patch('core.command',return_value=''),patch('core.probe') as probe_mock:
+        with patch('core.shutil.which',return_value='/mock/ping'),patch('core.discover_networks',return_value=[large]),patch('core.neighbors',return_value=[]),patch('core.command',return_value=''),patch('core.probe') as probe_mock:
             results,warnings=scan(large,threading.Event(),max_hosts=32)
         self.assertIn('large_network',warnings)
         self.assertEqual(probe_mock.call_count,0)

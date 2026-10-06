@@ -4,9 +4,9 @@ ID: hilfe
 META
 SPRACHE: en
 STATUS: pruefung
-VERSION: 1.13
+VERSION: 1.14
 ERSTELLT: 29.09.2026
-GEAENDERT: 02.10.2026
+GEAENDERT: 05.10.2026
 
 TITEL
 showipmac – Help
@@ -60,3 +60,6 @@ A device can have multiple MAC addresses, for example two LAN and one Wi-Fi. Fir
 [Language packs](https://github.com/Lehner-007/showipmac/tree/main/github/sprachpakete)
 
 ENDE
+
+## Storage
+The bundled IEEE vendor lists were updated on 05.10.2026. Invalid vendor files are preserved; the application reports the error and starts with the bundled lists. Updating vendor data remains an explicit user action. Multiple instances save complete settings snapshots: the last completed write wins; changes are not merged.

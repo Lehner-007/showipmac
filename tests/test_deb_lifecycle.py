@@ -16,6 +16,7 @@ class LifecycleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT / 'work', prefix='lifecycle-') as folder:
             home = Path(folder) / 'home'; home.mkdir()
             config = home / '.config'; config.mkdir()
+            (home / 'Mein Desktop').mkdir()
             (config / 'user-dirs.dirs').write_text('XDG_DESKTOP_DIR="$HOME/Mein Desktop"\n')
             with patch.object(lifecycle.shutil, 'which', return_value=None):
                 lifecycle.user_action('configure', home)
@@ -56,6 +57,15 @@ class LifecycleTests(unittest.TestCase):
             self.assertTrue((other / 'private').exists())
             (home / '.config').rmdir()
             (home / '.config').symlink_to(other, target_is_directory=True)
-            with self.assertRaises(ValueError):
-                lifecycle.user_action('remove', home)
+            lifecycle.user_action('remove', home)
             self.assertTrue((other / 'private').exists())
+
+    def test_managed_env_and_personal_starter(self):
+        with tempfile.TemporaryDirectory(dir=ROOT/'work') as folder:
+            home=Path(folder);apps=home/'.local/share/applications';apps.mkdir(parents=True)
+            managed=apps/'managed.desktop';managed.write_text(lifecycle.MANAGED.replace('Exec=showipmac','Exec=env LANG=de /usr/bin/showipmac'))
+            personal=apps/'personal.desktop';personal.write_text('[Desktop Entry]\nName=Personal\nExec=showipmac --data-dir /other\n')
+            with patch.dict(os.environ,{},clear=True):
+                self.assertTrue(lifecycle.user_action('remove',home))
+                self.assertTrue(lifecycle.user_action('purge',home))
+            self.assertFalse(managed.exists());self.assertTrue(personal.exists())

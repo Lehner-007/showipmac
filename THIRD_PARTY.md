@@ -2,10 +2,12 @@
 
 ## IEEE-Herstellerdaten
 
-Die vier unveränderten CSV-Dateien unter `vendor/` stammen aus dem lokal
-installierten Debian/Ubuntu-Paket `ieee-data`. Dateistand: 27.08.2022.
+Die vier unveränderten CSV-Dateien unter `vendor/` wurden am 05.10.2026
+direkt von den öffentlichen IEEE-Quellen geladen und inhaltlich validiert.
+Quellen, Last-Modified und Abrufzeit stehen in `vendor/metadata.json`.
+Der frühere mitgelieferte Stand aus `ieee-data` vom 27.08.2022 wurde ersetzt.
 Es handelt sich um MA-L (24 Bit), MA-M (28 Bit), MA-S (36 Bit) und IAB.
-Der Zeitpunkt ist der Paketdateistand; eine genauere Aktualität wird nicht behauptet.
+Die Quellen meldeten jeweils den Dateistand 05.10.2026.
 
 Die mitgelieferte vollständige Rechteerklärung liegt in
 `vendor/ieee-data-copyright.txt`. Für `oui.*`, `mam.*`, `oui36.*` und `iab.*`

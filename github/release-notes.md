@@ -1,13 +1,12 @@
-showipmac 0.6.0 integriert die gemeinsamen Python-Bausteine:
+showipmac 0.8.0
 
-- Einstellungen unter Datei, mit sichtbaren Trennlinien und kompakten Menüs.
-- Zentriertes Fortschrittsfenster mit sicherem Abbruch.
-- CSV, JSON oder eigenständiges HTML exportieren; alle oder angezeigte Geräte auswählen.
-- Protokollanzeige, getrennte Sitzungen, gespeicherter Fensterzustand und abgesetzte Tabellenzeilen.
-- Vorhandene Gerätedaten und Einstellungen bleiben bei Updates erhalten.
+- Fund- und Namensquellen mit Erfassungszeit, nachvollziehbare Scan-Schnappschüsse und Änderungen.
+- Hinweise auf mögliche IP-Konflikte innerhalb desselben Scans.
+- Lokale IPv4-/IPv6-Routen und DNS-Konfiguration.
+- Robuste Datenspeicherung und geprüfte Herstellerlisten mit Rückfall auf gebündelte IEEE-Daten.
+- Einheitliche Dialoge, Update-Download, sortierbare Spalten und Hilfe → Info.
+- DE/EN sowie acht zusätzliche Sprach-/Hilfepakete aktualisiert; muttersprachliche Abnahme der Zusatzsprachen steht aus.
 
-Installation: heruntergeladenes DEB mit `sudo apt install ./showipmac_0.6.0_all.deb` installieren.
+Installation: sudo apt install ./showipmac_0.8.0_all.deb
 
-DE/EN vollständig gepflegt. Neue Texte der zusätzlichen Sprachpakete sind teilweise Englisch; deren Hilfe beschreibt noch den vorherigen Bedienablauf.
-
-Das DEB wird aus diesem Versionstag gebaut und sein Programmcode gegen den Quellstand geprüft. SHA256SUMS enthält die Prüfsumme. Es erfolgt keine automatische Installation auf dem Entwicklungsrechner.
+Das Paket wird aus v0.8.0 gebaut; Programmcode und SHA-256 werden geprüft. Bestehende Gerätedaten und Einstellungen bleiben beim Upgrade erhalten. Keine automatische Installation.

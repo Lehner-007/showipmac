@@ -38,7 +38,7 @@ def stage_package(stage):
     desktop = next(ast.literal_eval(node.value) for node in ast.parse(lifecycle).body if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'DESKTOP' for t in node.targets))
     desktop_file = stage / 'usr/share/applications/showipmac.desktop'
     desktop_file.parent.mkdir(parents=True)
-    desktop_file.write_text(desktop)
+    desktop_file.write_text(desktop + 'X-Showipmac-Managed=true\n')
     control = stage / 'DEBIAN'
     control.mkdir()
     size = sum(p.stat().st_size for p in stage.rglob('*') if p.is_file())
@@ -54,12 +54,12 @@ Recommends: avahi-utils
 Description: Local network device discovery with GTK 4
  German and English interfaces, offline help and local device storage.
 ''')
-    for hook, condition in [('postinst', "action != 'configure'"), ('prerm', "action not in ('remove', 'purge')")]:
+    for hook, condition in [('postinst', "action != 'configure'"), ('prerm', "action not in ('remove', 'purge')"), ('postrm', "action != 'purge'")]:
         (control / hook).write_text(lifecycle.replace("action not in ('configure', 'remove', 'purge')", condition))
     (control / 'md5sums').write_text(''.join(f'{hashlib.md5(p.read_bytes()).hexdigest()}  {p.relative_to(stage)}\n' for p in sorted(stage.rglob('*')) if p.is_file() and control not in p.parents))
     for p in stage.rglob('*'):
         p.chmod(0o755 if p.is_dir() else 0o644)
-    for p in (launcher, control / 'postinst', control / 'prerm'):
+    for p in (launcher, control / 'postinst', control / 'prerm', control / 'postrm'):
         p.chmod(0o755)
     if shutil.which('desktop-file-validate'):
         subprocess.run(['desktop-file-validate', str(desktop_file)], check=True)

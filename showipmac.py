@@ -55,6 +55,8 @@ def main():
     except (ImportError, ValueError):
         print(texts['missing_gtk'], file=sys.stderr)
         return 1
+    from modules.runtime_paths import remember_installed_locations
+    remember_installed_locations()
     runtime = Runtime(args.data_dir)
     (runtime.path / 'logs').mkdir(exist_ok=True)
     try:
@@ -87,7 +89,8 @@ def create_application(runtime):
             try:
                 self.vendors = Vendors.load(runtime.path / 'vendors.json')
             except (OSError, ValueError):
-                self.vendors = Vendors()
+                logging.warning(self.rt.text('oui_error'), exc_info=True)
+                self.vendors = Vendors.load(None)
                 self.rt.warnings.append('oui_error')
             self.worker = None
             from modules.jobs import JobRunner
@@ -361,6 +364,8 @@ def create_application(runtime):
             box.append(selector)
             scroll = Gtk.ScrolledWindow(vexpand=True)
             box.append(scroll)
+            extra = Gtk.Label(wrap=True, xalign=0, selectable=True)
+            detail_generation=[0]
             note = Gtk.Label(label=self.text('port_number_note'), wrap=True, xalign=0)
             note.add_css_class('dim-label')
             box.append(note)
@@ -386,7 +391,24 @@ def create_application(runtime):
                     content = Gtk.Label(label=value, xalign=0, yalign=0, selectable=True, wrap=True, hexpand=True)
                     content.set_direction(Gtk.TextDirection.LTR)
                     grid.attach(content, 1, index, 1, 1)
+                if extra.get_parent():extra.unparent()
+                grid.attach(extra,0,len(rows),2,1)
                 note.set_visible(connection.rsplit(' ', 1)[-1].isdigit())
+                detail_generation[0]+=1
+                generation=detail_generation[0]
+                extra.set_label(self.text('network_details_loading'))
+                def collect():
+                    from core import network_details
+                    data=network_details(network)
+                    def show():
+                        if generation!=detail_generation[0] or not window.get_visible():return False
+                        routes='\n'.join('IPv'+r['family']+' '+r['destination']+' → '+(r['gateway'] or '—')+' ('+str(r['table'])+')' for r in data['routes'])
+                        extra.set_label(self.text('routes')+':\n'+(routes or self.text('unknown'))+'\n'+self.text('dns_configuration')+' ('+data['dns_source']+'):\n'+data['dns']+'\n'+self.text('dns_note')+'\n'+'; '.join(data['errors']))
+                        return False
+                    GLib.idle_add(show)
+                import threading
+                threading.Thread(target=collect,daemon=True).start()
+
 
             selector.connect('notify::selected', update_details)
             update_details()
@@ -624,10 +646,18 @@ def create_application(runtime):
                 lines.append(self.text('private_mac'))
             if device['changed']:
                 lines.append(self.text('changed'))
+            lines.append(self.text('missing_scans') + ': ' + str(device.get('missing_scans',0)))
+            for conflict in device.get('conflicts',[]):
+                lines.append(self.text('possible_conflict') + ': ' + conflict['ip'] + ' / ' + conflict['interface'] + ' / ' + ', '.join(conflict['macs']) + ' / ' + local_time(conflict['time']))
+            for key,change in device.get('changes',{}).items():
+                lines.append(self.text(key) + ': ' + ', '.join(change['before']) + ' → ' + ', '.join(change['after']))
+            for change in device.get('assignment_changes',[]):
+                lines.append(change['ip']+' / '+change['interface']+' / '+self.text('mac')+': '+', '.join(change['before'])+' → '+', '.join(change['after'])+' / '+local_time(change['time']))
+            lines.append(self.text('observation_note'))
             lines.extend([self.text('first_seen') + ': ' + local_time(device['first_seen'], self.rt.settings['language']), self.text('last_seen') + ': ' + local_time(device['last_seen'], self.rt.settings['language']), '', self.text('history')])
             for obs in device['history']:
-                lines.append('\n' + '\n'.join(self.text(k) + ': ' + ((local_time(obs.get(k), self.rt.settings['language']) if k in ('first_seen','last_seen') else obs.get(k)) or self.text('unknown'))
-                             for k in ('scope', 'interface', 'mac', 'hostname', 'first_seen', 'last_seen', 'evidence'))
+                lines.append('\n' + '\n'.join(self.text(k) + ': ' + ((local_time(obs.get(k), self.rt.settings['language']) if k in ('first_seen','last_seen','observed_at') else (self.text('source_'+(obs.get(k) or 'unknown')) if k in ('source','name_source') else obs.get(k))) or self.text('unknown'))
+                             for k in ('scope', 'interface', 'mac', 'hostname', 'source', 'name_source', 'observed_at', 'first_seen', 'last_seen', 'evidence'))
                              + '\nIP: ' + obs['ip'])
             view = Gtk.TextView(editable=False, cursor_visible=False, wrap_mode=Gtk.WrapMode.WORD_CHAR)
             view.get_buffer().set_text('\n'.join(lines))

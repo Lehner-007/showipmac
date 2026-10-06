@@ -94,5 +94,20 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(install_pack(data,self.path/'profile'),code)
         rt=Runtime(self.path/'profile')
         self.assertTrue(codes.issubset(rt.languages))
-        self.assertEqual(json.loads((ROOT/'github/version.json').read_text()),dict(program_id='showipmac',version=VERSION))
+        metadata=json.loads((ROOT/'github/version.json').read_text())
+        self.assertEqual(metadata['program_id'],'showipmac')
+        self.assertEqual(metadata['version'],VERSION)
+        if 'deb' in metadata:
+            import hashlib
+            from unittest.mock import patch
+            from modules.updates import release_info
+            from core import VERSION_INFO_URL
+            with patch('modules.updates.github_json',return_value=metadata):
+                info=release_info(VERSION_INFO_URL)
+            package=ROOT/'dist'/info['deb']['filename']
+            self.assertTrue(package.is_file())
+            self.assertEqual(hashlib.sha256(package.read_bytes()).hexdigest(),info['deb']['sha256'])
+            import subprocess
+            self.assertEqual(subprocess.check_output(['dpkg-deb','-f',str(package),'Package'],text=True).strip(),'showipmac')
+            self.assertEqual(subprocess.check_output(['dpkg-deb','-f',str(package),'Version'],text=True).strip(),VERSION)
         self.assertEqual(set(p.stem for p in (ROOT/'lang').glob('*.json')),{'de','en'})

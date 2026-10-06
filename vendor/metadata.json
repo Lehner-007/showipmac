@@ -1,0 +1,22 @@
+{
+  "fetched_at": "2026-10-05T12:50:39.384007+00:00",
+  "sources": {
+    "oui": {
+      "url": "https://standards-oui.ieee.org/oui/oui.csv",
+      "last_modified": "Mon, 05 Oct 2026 12:01:29 GMT"
+    },
+    "mam": {
+      "url": "https://standards-oui.ieee.org/oui28/mam.csv",
+      "last_modified": "Mon, 05 Oct 2026 12:01:12 GMT"
+    },
+    "oui36": {
+      "url": "https://standards-oui.ieee.org/oui36/oui36.csv",
+      "last_modified": "Mon, 05 Oct 2026 12:01:43 GMT"
+    },
+    "iab": {
+      "url": "https://standards-oui.ieee.org/iab/iab.csv",
+      "last_modified": "Mon, 05 Oct 2026 12:01:03 GMT"
+    }
+  },
+  "date": "2026-10-05"
+}

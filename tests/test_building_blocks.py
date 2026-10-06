@@ -32,6 +32,14 @@ def pump(seconds=.2):
         time.sleep(.005)
 
 
+def wait_until(predicate, timeout=5):
+    deadline = time.monotonic() + timeout
+    while not predicate() and time.monotonic() < deadline:
+        pump(.05)
+    if not predicate():
+        raise AssertionError('GTK operation did not complete before timeout')
+
+
 class SharedTests(unittest.TestCase):
     def setUp(self):
         startup=patch("modules.integration.initial_update",lambda *_:None)
@@ -46,8 +54,12 @@ class SharedTests(unittest.TestCase):
         self.app.store.commit_scan(NET, [obs, dict(obs, mac='00:11:22:33:44:77', ip='192.0.2.3', hostname='router')])
         with patch('showipmac.discover_networks', return_value=[NET]):
             self.app.activate(self.app)
-            pump(.4)
+            deadline = time.monotonic() + 5
+            while self.app.worker and time.monotonic() < deadline:
+                pump(.05)
         self.assertIsNone(self.app.worker)
+        wait_until(lambda: self.app.window.get_width()>0 and self.app.window.get_height()>0)
+        pump(.5)
 
     def tearDown(self):
         if self.app.window.alive:
@@ -131,11 +143,11 @@ class SharedTests(unittest.TestCase):
             raise Cancelled()
         self.assertTrue(app.run_job(wait, called.append, title_key='task_scan'))
         self.assertFalse(app.run_job(lambda: None, called.append))
-        pump(.2)
+        wait_until(lambda: app.progress_dialog.progress.get_fraction() == .1)
         self.assertTrue(app.progress_dialog.get_modal())
         self.assertEqual(app.progress_dialog.get_transient_for(), app.window)
         self.assertEqual(app.progress_dialog.progress.get_fraction(), .1)
-        app.cancel(); pump(.4)
+        app.cancel(); wait_until(lambda: app.progress_dialog is None)
         self.assertFalse(called)
         self.assertIsNone(app.progress_dialog)
         self.assertEqual(app.status_key, 'cancelled')
@@ -143,7 +155,7 @@ class SharedTests(unittest.TestCase):
         self.assertFalse(app.progress_dialog.cancel_button.get_sensitive())
         app.on_close()
         self.assertTrue(app.window.alive)
-        pump(.5)
+        wait_until(lambda: not app.window.alive)
         self.assertFalse(app.window.alive)
         self.assertFalse(called)
 

@@ -11,6 +11,7 @@ import socket
 import sqlite3
 import subprocess
 import time
+import tempfile
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
@@ -21,7 +22,7 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
 from email.utils import parsedate_to_datetime
 
-VERSION = '0.7.0'
+VERSION = '0.8.0'
 ROOT = Path(__file__).resolve().parent
 PROJECT_URL = 'https://github.com/Lehner-007/showipmac'
 LANGUAGE_SOURCE_URL = 'https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/sprachpakete'
@@ -159,7 +160,7 @@ def valid_hostname(name):
         return name
 
 
-def resolve_hostname(address, interface, cancel):
+def resolve_hostname(address, interface, cancel, with_source=False):
     """NSS includes hosts/DNS/mDNS as configured; optional Avahi adds an mDNS fallback."""
     ip = ipaddress.ip_address(address.split('%')[0])
     scoped = address + '%' + interface if ip.version == 6 and ip.is_link_local and '%' not in address else address
@@ -182,8 +183,8 @@ def resolve_hostname(address, interface, cancel):
                 continue
             name = valid_hostname(parts[1])
             if name:
-                return name
-    return ''
+                return (name, 'nss' if args[0]=='getent' else 'mdns') if with_source else name
+    return ('', 'unknown') if with_source else ''
 
 
 def discover_networks(cancel=None):
@@ -203,7 +204,8 @@ def neighbors(network, cancel):
         address = row.get('dst', '')
         if network.contains(address):
             result.append({'mac': mac, 'ip': address, 'interface': network.interface,
-                           'hostname': '', 'evidence': ','.join(states)})
+                           'hostname': '', 'evidence': ','.join(states),
+                           'source': 'cache', 'observed_at': now()})
     return result
 
 
@@ -259,11 +261,16 @@ def scan(network, cancel, progress=lambda *_: None, active=True, max_hosts=4096)
     if network.mac:
         observations.extend({'mac': network.mac, 'ip': ip, 'interface': network.interface,
                              'hostname': '', 'evidence': 'local'} for ip in own)
+    cached_keys={(r['ip'],r['mac']) for r in cached}
+    stamp=now()
+    for obs in observations:
+        obs['source']='local' if obs['evidence']=='local' else ('cache' if (obs['ip'],obs['mac']) in cached_keys else 'scan_neighbor')
+        obs['observed_at']=stamp
     names = {}
     def resolve(address):
         if address in own:
-            return address, valid_hostname(socket.gethostname())
-        return address, resolve_hostname(address, network.interface, cancel)
+            return address, (valid_hostname(socket.gethostname()), 'local')
+        return address, resolve_hostname(address, network.interface, cancel, with_source=True)
     progress('resolving', len(observations))
     with ThreadPoolExecutor(max_workers=8) as pool:
         for address, name in pool.map(resolve, sorted({r['ip'] for r in observations})):
@@ -271,7 +278,7 @@ def scan(network, cancel, progress=lambda *_: None, active=True, max_hosts=4096)
     if cancel.is_set():
         raise Cancelled()
     for obs in observations:
-        obs['hostname'] = names.get(obs['ip'], '')
+        obs['hostname'],obs['name_source'] = names.get(obs['ip'], ('', 'unknown'))
     if replace(network, selected_ipv4="") not in discover_networks(cancel):
         raise DiscoveryError('network_changed')
     return observations, sorted(set(warnings))
@@ -319,8 +326,13 @@ class Store:
           ip TEXT NOT NULL, interface TEXT NOT NULL, hostname TEXT NOT NULL, evidence TEXT NOT NULL,
           first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, scan TEXT NOT NULL, first_scan TEXT NOT NULL,
           PRIMARY KEY(scope, mac, ip, interface));
+        CREATE TABLE IF NOT EXISTS scan_snapshots (scan TEXT PRIMARY KEY, data TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS observation_device ON observations(device);
         ''')
+        columns={row['name'] for row in self.db.execute('PRAGMA table_info(observations)')}
+        for column in ('source','observed_at','name_source'):
+            if column not in columns:
+                self.db.execute(f"ALTER TABLE observations ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
         # Fill legacy unnamed devices from their most recent usable hostname.
         with self.db:
             for row in self.db.execute('SELECT id,name FROM devices').fetchall():
@@ -372,11 +384,13 @@ class Store:
                     self.db.execute('INSERT INTO devices VALUES(?,?,?,?)', (device, '', stamp, stamp))
                 self.db.execute('UPDATE devices SET last_seen=? WHERE id=?', (stamp, device))
                 self._adopt_hostname(device, obs.get('hostname', ''))
-                self.db.execute('''INSERT INTO observations VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                self.db.execute('''INSERT INTO observations (device,scope,mac,ip,interface,hostname,evidence,first_seen,last_seen,scan,first_scan,source,observed_at,name_source) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                   ON CONFLICT(scope,mac,ip,interface) DO UPDATE SET
-                  hostname=excluded.hostname,evidence=excluded.evidence,last_seen=excluded.last_seen,scan=excluded.scan''',
+                  hostname=excluded.hostname,evidence=excluded.evidence,last_seen=excluded.last_seen,scan=excluded.scan,source=excluded.source,observed_at=excluded.observed_at,name_source=excluded.name_source''',
                   (device, network.scope, mac, obs['ip'], obs['interface'], obs.get('hostname', ''),
-                   obs.get('evidence', ''), stamp, stamp, scan_id, scan_id))
+                   obs.get('evidence', ''), stamp, stamp, scan_id, scan_id, obs.get('source','unknown'),obs.get('observed_at',stamp),obs.get('name_source','unknown')))
+            snapshot=[dict(r) for r in self.db.execute('SELECT * FROM observations WHERE scan=?',(scan_id,))]
+            self.db.execute('INSERT INTO scan_snapshots VALUES(?,?)',(scan_id,json.dumps(snapshot)))
         return scan_id
 
     def devices(self, scope):
@@ -385,6 +399,18 @@ class Store:
         latest = self.db.execute(f'SELECT id,time FROM scans WHERE scope IN ({placeholders}) ORDER BY rowid DESC LIMIT 1', scopes).fetchone()
         if not latest:
             return []
+        scans=[dict(r) for r in self.db.execute(f'SELECT id,time FROM scans WHERE scope IN ({placeholders}) ORDER BY rowid DESC',scopes)]
+        previous_id=scans[1]['id'] if len(scans)>1 else None
+        saved=self.db.execute('SELECT data FROM scan_snapshots WHERE scan=?',(previous_id,)).fetchone()
+        previous_by_mac={}
+        previous_by_ip={}
+        if saved:
+            for obs in json.loads(saved['data']):
+                previous_by_mac.setdefault(obs['mac'],[]).append(obs)
+                previous_by_ip.setdefault((obs['ip'],obs['interface']),set()).add(obs['mac'])
+        current_by_ip={}
+        for obs in self.db.execute(f'SELECT ip,mac,interface FROM observations WHERE scan=? AND scope IN ({placeholders})', [latest['id'],*scopes]):
+            current_by_ip.setdefault((obs['ip'],obs['interface']),set()).add(obs['mac'])
         result = []
         for row in self.db.execute(f'SELECT DISTINCT d.* FROM devices d JOIN observations o ON o.device=d.id WHERE o.scope IN ({placeholders}) ORDER BY d.first_seen,d.id', scopes):
             device = dict(row)
@@ -401,8 +427,25 @@ class Store:
             device['is_local'] = any(o['evidence'] == 'local' for o in shown)
             device['history'] = history
             device['private_mac'] = any(int(m[:2], 16) & 2 for m in device['mac'])
-            old_ips = {o['ip'] for o in scoped if o['scan'] != latest['id']}
-            device['changed'] = bool(current and old_ips)
+            previous=[o for mac in {h['mac'] for h in history} for o in previous_by_mac.get(mac,[])] if saved else [o for o in scoped if o['scan']==previous_id]
+            fields=('ip','mac','hostname')
+            device['changes']={k:{'before':sorted({o[k] for o in previous if o[k]}),
+                                  'after':sorted({o[k] for o in current if o[k]})}
+                               for k in fields if current and previous and {o[k] for o in previous}!={o[k] for o in current}}
+            device['assignment_changes']=[]
+            for ip,interface in sorted({(o['ip'],o['interface']) for o in shown}):
+                before=previous_by_ip.get((ip,interface),set());after=current_by_ip.get((ip,interface),set())
+                if before and after and before!=after:
+                    device['assignment_changes'].append(dict(ip=ip,interface=interface,before=sorted(before),after=sorted(after),time=latest['time']))
+            device['changed']=bool(device['changes'] or device['assignment_changes'])
+            device['missing_scans']=0
+            for scan_row in scans:
+                if scan_row['time'] <= max(o['last_seen'] for o in scoped):break
+                device['missing_scans']+=1
+            device['conflicts']=[dict(ip=o['ip'],interface=o['interface'],macs=sorted(current_by_ip[(o['ip'],o['interface'])]),time=latest['time'])
+                for o in current if len(current_by_ip.get((o['ip'],o['interface']),()))>1]
+            device['observations']=shown
+
             result.append(device)
         return result
 
@@ -467,13 +510,42 @@ class Vendors:
 
     @classmethod
     def load(cls, custom):
-        if custom.exists():
+        if custom is not None and custom.exists():
             data = json.loads(custom.read_text())
-            if not isinstance(data.get('prefixes'), dict) or not isinstance(data.get('date'), str):
+            if not isinstance(data, dict):
+                raise ValueError('invalid_oui')
+            prefixes, date = data.get('prefixes'), data.get('date')
+            if not isinstance(prefixes, dict) or not isinstance(date, str):
+                raise ValueError('invalid_oui')
+            if date:
+                dates = date.removesuffix(' (ieee-data)').split(' – ')
+                try:
+                    if len(dates) not in (1, 2):
+                        raise ValueError('invalid_oui')
+                    for value in dates:
+                        if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
+                            raise ValueError('invalid_oui')
+                        datetime.strptime(value, '%Y-%m-%d')
+                except ValueError as exc:
+                    raise ValueError('invalid_oui') from exc
+            if any(not isinstance(prefix, str) or
+                   not re.fullmatch(r'[0-9A-F]{6}|[0-9A-F]{7}|[0-9A-F]{9}', prefix) or
+                   not isinstance(vendor, str) or not vendor.strip()
+                   for prefix, vendor in prefixes.items()):
                 raise ValueError('invalid_oui')
             return cls(data)
         sources = list((ROOT / 'vendor').glob('*.csv'))
-        return cls.parse([p.read_text(encoding='utf-8-sig') for p in sources], '2022-08-27 (ieee-data)') if sources else cls()
+        if not sources:
+            return cls()
+        metadata = ROOT / 'vendor/metadata.json'
+        details = json.loads(metadata.read_text()) if metadata.exists() else {}
+        instance = cls.parse([p.read_text(encoding='utf-8-sig') for p in sources],
+                             details.get('date', '2022-08-27 (ieee-data)'))
+        if details:
+            instance.data.update(fetched_at=details.get('fetched_at', ''),
+                                 source_dates={name: parsedate_to_datetime(value['last_modified']).isoformat()
+                                               for name, value in details['sources'].items()})
+        return instance
 
     def lookup(self, mac):
         mac = valid_mac(mac)
@@ -527,12 +599,23 @@ class Vendors:
 
 
 def atomic_json(path, data):
-    temporary = path.with_name(path.name + '.tmp')
-    with temporary.open('w', encoding='utf-8') as handle:
-        json.dump(data, handle, ensure_ascii=False, indent=2)
-        handle.flush()
-        os.fsync(handle.fileno())
-    temporary.replace(path)
+    """Atomic whole-file snapshots: the last completed replacement wins.
+
+    Independent instances do not merge settings. Each owns its temporary file;
+    readers see only complete snapshots, even with concurrent writers.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix='.' + path.name + '-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def export(path, devices, translate, kind='csv'):
@@ -557,3 +640,24 @@ def export(path, devices, translate, kind='csv'):
                 # Avoid spreadsheet formula execution in user names/hostnames.
                 row = [value(device, k) for k in keys]
                 writer.writerow(["'" + v if v.lstrip().startswith(('=', '+', '-', '@')) else v for v in row])
+
+
+def network_details(network, cancel=None):
+    """Read local route/DNS configuration; do not contact gateways or other LANs."""
+    result={'routes':[], 'dns':'', 'dns_source':'unknown', 'errors':[]}
+    for version in ('-4','-6'):
+        try:
+            rows=json.loads(command(['ip',version,'-j','route','show','table','all','dev',network.interface],cancel))
+            result['routes'].extend(dict(family=version[1:],destination=r.get('dst','default'),gateway=r.get('gateway',''),table=r.get('table','main')) for r in rows)
+        except (DiscoveryError,ValueError) as exc:result['errors'].append(str(exc))
+    if shutil.which('resolvectl'):
+        try:
+            result['dns']=command(['resolvectl','status',network.interface],cancel,timeout=3)[:8000]
+            result['dns_source']='resolvectl'
+        except DiscoveryError as exc:result['errors'].append(str(exc))
+    if not result['dns']:
+        try:
+            result['dns']=Path('/etc/resolv.conf').read_text()[:8000]
+            result['dns_source']='resolv.conf'
+        except OSError as exc:result['errors'].append(str(exc))
+    return result
