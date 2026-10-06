@@ -1,3 +1,11 @@
+# 0.8.2
+
+- Hilfe einheitlich über Hilfe → Hilfe und F1 erreichbar; Hinweis in DE/EN.
+
+# 0.8.1
+
+- Programmlogo in deutscher und englischer Hilfe eingebettet; Hilfeseiten bleiben eigenständig nutzbar.
+
 # 0.8.0 – 06.10.2026
 
 - Paketbereinigung mit registrierten XDG-Speicherorten, Schutz persönlicher Starter und eigenständigem purge-Hook.

@@ -52,12 +52,20 @@ def validate_pack(data):
     help_=data.get('help_html')
     if not isinstance(help_,str) or not help_.strip():raise ValueError('Missing HTML help')
     soup=BeautifulSoup(help_,'html.parser')
-    allowed={'html','head','title','body','main','section','h1','h2','h3','p','ul','ol','li','pre','code','table','tr','th','td','br','hr','strong','em','span','a','meta'}
+    allowed={'html','head','title','body','main','section','h1','h2','h3','p','ul','ol','li','pre','code','table','tr','th','td','br','hr','strong','em','span','a','meta','img'}
     for tag in list(soup.find_all(True)):
         if tag.name is None:continue
-        if tag.name in ('script','style','iframe','object','embed','form','input','link','img','svg','math'):
+        if tag.name in ('script','style','iframe','object','embed','form','input','link','svg','math'):
             tag.decompose();continue
         if tag.name not in allowed:tag.unwrap();continue
+        if tag.name=='img':
+            # Only the application's bundled logo may survive an imported help file.
+            reference=BeautifulSoup((ROOT/'help/en/index.html').read_text('utf-8'),'html.parser').find('img')
+            src=reference.get('src','') if reference else ''
+            if not src.startswith('data:image/png;base64,') or tag.get('src')!=src:
+                tag.decompose();continue
+            tag.attrs={'src':src,'alt':PROGRAM_ID,'width':'160'}
+            continue
         attrs={}
         if tag.name=='html':
             attrs['lang']=code

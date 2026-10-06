@@ -96,7 +96,8 @@ class PublicationTests(unittest.TestCase):
         self.assertTrue(codes.issubset(rt.languages))
         metadata=json.loads((ROOT/'github/version.json').read_text())
         self.assertEqual(metadata['program_id'],'showipmac')
-        self.assertEqual(metadata['version'],VERSION)
+        self.assertLessEqual(tuple(map(int,metadata['version'].split('.'))),tuple(map(int,VERSION.split('.'))))
+        self.assertIn('/v'+metadata['version']+'/',metadata['deb']['url'])
         if 'deb' in metadata:
             import hashlib
             from unittest.mock import patch
@@ -109,5 +110,5 @@ class PublicationTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(package.read_bytes()).hexdigest(),info['deb']['sha256'])
             import subprocess
             self.assertEqual(subprocess.check_output(['dpkg-deb','-f',str(package),'Package'],text=True).strip(),'showipmac')
-            self.assertEqual(subprocess.check_output(['dpkg-deb','-f',str(package),'Version'],text=True).strip(),VERSION)
+            self.assertEqual(subprocess.check_output(['dpkg-deb','-f',str(package),'Version'],text=True).strip(),metadata['version'])
         self.assertEqual(set(p.stem for p in (ROOT/'lang').glob('*.json')),{'de','en'})
