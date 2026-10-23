@@ -32,6 +32,8 @@ class PublicationTests(unittest.TestCase):
         for folder in ('.config','work','__pycache__'):
             (root/folder).mkdir();(root/folder/'private.txt').write_text('not public')
         (root/'TESTBERICHT.md').write_text('private test report')
+        (root/'Pruefbericht_showipmac_1.2.3.md').write_text('private release report')
+        (root/'BIBLIOTHEK.md').write_text('local dependency notes')
         before=(root/'core.py').read_bytes()
         result=self.run_script(root)
         self.assertEqual(result.returncode,0,result.stderr)
@@ -39,6 +41,8 @@ class PublicationTests(unittest.TestCase):
         self.assertFalse((stage/'.config').exists())
         self.assertFalse((stage/'work').exists())
         self.assertFalse((stage/'TESTBERICHT.md').exists())
+        self.assertFalse((stage/'Pruefbericht_showipmac_1.2.3.md').exists())
+        self.assertFalse((stage/'BIBLIOTHEK.md').exists())
         self.assertEqual((stage/'core.py').read_bytes(),before)
         self.assertEqual((root/'core.py').read_bytes(),before)
         self.assertFalse((root/'.git').exists())
@@ -78,6 +82,19 @@ class PublicationTests(unittest.TestCase):
         result=self.run_script(root,'--publish')
         self.assertNotEqual(result.returncode,0)
         self.assertIn('existiert bereits',result.stderr)
+
+    def test_publish_allows_removing_retired_start_script(self):
+        root=self.fixture()
+        (root/'start.sh').write_text('#!/bin/sh\nexit 0\n')
+        def git(*args):return subprocess.run(['git','-C',str(root),*args],check=True,capture_output=True)
+        git('init','-b','main');git('config','user.name','Test');git('config','user.email','test@example.invalid')
+        git('remote','add','origin','github:example/showipmac.git')
+        git('add','.');git('commit','-m','Previous snapshot')
+        (root/'start.sh').unlink()
+        result=self.run_script(root,'--publish')
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('Keine ausdrückliche Bestätigung',result.stderr)
+        self.assertIn('ENTFERNT: start.sh',result.stdout)
 
     def test_all_eight_packs_complete_importable_and_correct_version(self):
         folder=ROOT/'github/sprachpakete'

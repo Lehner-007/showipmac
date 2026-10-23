@@ -4,15 +4,15 @@ Eindeutige temporäre JSON-Dateien mit kontrollierter Bereinigung; validierte He
 
 Gerätedetails unterscheiden vorhandenen Nachbarcache, erstmals im Scan erfasste Nachbareinträge und den eigenen Rechner. Die Erfassungszeit beweist keine Antwort. Technische Namen behalten die Quelle NSS (konkreter Dienst unbekannt), mDNS/Avahi oder lokal; eigene Namen bleiben erhalten. Zwei MACs mit derselben IP im selben abgeschlossenen Scan auf derselben Schnittstelle werden als möglicher Konflikt gemeldet (auch Proxy-ARP möglich). Frühere DHCP-Zuordnungen zählen nicht als aktueller Konflikt. Neue Scan-Schnappschüsse vergleichen Adressen und Namen; fehlende Geräte zeigen die Anzahl vergleichbarer Scans ohne Fund. Andere Netze zählen nicht dazu. Netzwerkdetails lesen IPv4-/IPv6-Routen und Gateways sowie resolvectl-Daten mit eingeschränktem Rückfall auf resolv.conf. Es wird kein Gateway kontaktiert. Bestehende Datenbanken werden ohne Verlust ergänzt; ältere Fund- und Namensquellen bleiben unbekannt. Änderungen und Konflikte werden in der Ergebnisliste gekennzeichnet; Details und JSON enthalten die Beobachtungen.
 
-Noch nicht als DEB erstellt oder veröffentlicht. Der bisherige Release bleibt unverändert. Prüfdetails: `TESTBERICHT.md`.
+Version 0.8.6 enthält die Korrektur für SM-085-01. Das DEB wird aus dem passenden Quelltag gebaut; Prüfsumme und Paketinhalt werden im GitHub-Release geprüft. Eine Installation erfolgt nicht automatisch.
 
 # showipmac
 
 GTK-4-Anwendung zur Erfassung von Geräten im ausgewählten lokalen Netzwerk.
-Erster Entwicklungsstand; zentrale Versionsquelle: `core.VERSION` (`./start.sh --version`).
+Erster Entwicklungsstand; zentrale Versionsquelle: `core.VERSION` (`./.start.sh --version`).
 
 ```bash
-./start.sh
+./.start.sh
 ```
 
 Systemvoraussetzungen: Python 3, python3-gi, gir1.2-gtk-4.0, iproute2, python3-requests, python3-bs4.
@@ -36,7 +36,7 @@ funktioniert offline mit den mitgelieferten IEEE-Daten; Aktualisierung nur per
 Benutzeraktion. Die Anwendung funktioniert auch bei fehlenden Herstellerdaten.
 
 Entwicklungsdaten liegen in `.config/`. Ein isolierter Teststart ist möglich mit
-`./start.sh --data-dir work/testprofil`. Persönliche Daten und Logs gehören nicht
+`./.start.sh --data-dir work/testprofil`. Persönliche Daten und Logs gehören nicht
 in eine Veröffentlichung.
 
 Tests:

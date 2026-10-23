@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=showipmac
+Comment=Projekt starten
+Exec="/home/josef/Labor/Python/showipmac/.start.sh"
+Path=/home/josef/Labor/Python/showipmac
+Icon=/home/josef/Labor/Python/showipmac/assets/showipmac.png
+Terminal=false
+Categories=Utility;

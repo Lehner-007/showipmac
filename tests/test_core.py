@@ -141,7 +141,7 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(len(observations),2)
 
     def test_oui_longest_prefix_private_unknown(self):
-        vendor=Vendors.parse(['Assignment,Organization Name\n001122,General\n0011223,Specific\n001122334,Exact\n'],'today')
+        vendor=Vendors.parse(['Assignment,Organization Name\n001122,General\n0011223,Specific\n001122334,Exact\n'],'2026-10-22')
         self.assertEqual(vendor.lookup('00:11:22:33:44:55'),'Exact')
         self.assertEqual(vendor.lookup('00:11:22:35:44:55'),'Specific')
         self.assertEqual(vendor.lookup('02:11:22:33:44:55'),'')

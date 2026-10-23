@@ -1,3 +1,22 @@
+## 0.8.6 – 23.10.2026
+
+- SM-085-01: Befehlslaufzeit und Ausgabekanäle teilen eine monotone Frist; bei Timeout oder Abbruch wird die eigene Prozessgruppe begrenzt beendet.
+- Regressionen decken beendete Elternprozesse mit weiterlaufenden Kindern, SIGKILL-Eskalation, Abbruch sowie Ausgabegrenzen ab.
+
+## 0.8.5 – 22.10.2026
+
+- Aktive Scan-Ziele einschließlich IPv4-, IPv6- und Cache-Kandidaten auf ein gemeinsames Limit begrenzen; passive Nachbarn und Namensabfragen getrennt ausweisen.
+- Herstellerdaten bei Einlesen und Aktualisieren einheitlich prüfen; private Datenbank-, Journal-, Laufzeit- und Protokolldateien absichern.
+- Prozessausgaben und ausstehende Scanaufgaben begrenzen; Datenbankgröße und gespeicherte Scans anzeigen.
+
+## 0.8.4 – 22.10.2026
+
+Gemeinsame Bibliothek josef_basis 0.1.0 lokal eingebunden; vorhandene Schnittstellen beibehalten.
+
+## 0.8.3 — 11.10.2026
+
+- Projektstart über .start.sh und ausführbare Icon-Verknüpfung; interne Verweise angepasst.
+
 # 0.8.2
 
 - Hilfe einheitlich über Hilfe → Hilfe und F1 erreichbar; Hinweis in DE/EN.

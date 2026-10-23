@@ -6,14 +6,17 @@ import ipaddress
 import json
 import os
 import re
+import selectors
+import signal
 import shutil
 import socket
 import sqlite3
+import stat
 import subprocess
 import time
 import tempfile
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,7 +25,7 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
 from email.utils import parsedate_to_datetime
 
-VERSION = '0.8.2'
+VERSION = '0.8.6'
 ROOT = Path(__file__).resolve().parent
 PROJECT_URL = 'https://github.com/Lehner-007/showipmac'
 LANGUAGE_SOURCE_URL = 'https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/sprachpakete'
@@ -41,37 +44,96 @@ class DiscoveryError(Exception):
     pass
 
 
-def command(args, cancel=None, timeout=5, allowed=(0,)):
-    """No shell, bounded duration, terminate children on cancellation."""
+def _command_group_exists(pgid):
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
+def _signal_command_group(pgid, sig):
+    try:
+        os.killpg(pgid, sig)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return _command_group_exists(pgid)
+    return True
+
+
+def _stop_command_group(proc):
+    """Stop the command's private process group without unbounded waits."""
+    pgid = proc.pid  # start_new_session makes the child the group leader.
+    _signal_command_group(pgid, signal.SIGTERM)
+    grace_deadline = time.monotonic() + .2
+    while time.monotonic() < grace_deadline:
+        proc.poll()  # Reap the direct child if it has already exited.
+        if not _command_group_exists(pgid):
+            break
+        time.sleep(min(.01, max(0, grace_deadline - time.monotonic())))
+    if _command_group_exists(pgid):
+        _signal_command_group(pgid, signal.SIGKILL)
+    try:
+        proc.wait(timeout=.2)
+    except subprocess.TimeoutExpired:
+        _signal_command_group(pgid, signal.SIGKILL)
+        try:
+            proc.wait(timeout=.2)
+        except subprocess.TimeoutExpired:
+            # The group has already received SIGKILL; never block cleanup forever.
+            pass
+
+
+def command(args, cancel=None, timeout=5, allowed=(0,), *, max_stdout=1_000_000, max_stderr=64_000):
+    """No shell; bound run time and retained output while continuously draining pipes."""
     cancel = cancel or Event()
     if cancel.is_set():
         raise Cancelled()
     try:
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False, bufsize=0,
+                                start_new_session=True)
     except FileNotFoundError as exc:
         raise DiscoveryError('missing_tool:' + args[0]) from exc
     deadline = time.monotonic() + timeout
+    buffers={proc.stdout:bytearray(),proc.stderr:bytearray()}
+    limits={proc.stdout:max_stdout,proc.stderr:max_stderr}
+    totals={proc.stdout:0,proc.stderr:0}
+    truncated=False
+    selector=None
+    completed=False
     try:
-        while True:
+        selector=selectors.DefaultSelector()
+        for stream in buffers:selector.register(stream,selectors.EVENT_READ)
+        while selector.get_map() or proc.poll() is None:
             if cancel.is_set():
                 raise Cancelled()
-            try:
-                out, err = proc.communicate(timeout=.1)
-                break
-            except subprocess.TimeoutExpired:
-                if time.monotonic() >= deadline:
-                    raise DiscoveryError('timeout:' + args[0])
-        if proc.returncode not in allowed:
-            raise DiscoveryError(args[0] + ': ' + err.strip()[:500])
+            remaining=deadline-time.monotonic()
+            if remaining<=0:raise DiscoveryError('timeout:'+args[0])
+            for key,_ in selector.select(min(.05,remaining)):
+                stream=key.fileobj
+                chunk=os.read(stream.fileno(),65536)
+                if not chunk:
+                    selector.unregister(stream);continue
+                buf=buffers[stream];limit=limits[stream]
+                totals[stream]+=len(chunk)
+                if len(buf)<limit:buf.extend(chunk[:limit-len(buf)])
+                if totals[stream]>limit:truncated=True
+        if truncated:raise DiscoveryError('output_limit:'+args[0])
+        out=buffers[proc.stdout].decode('utf-8','replace')
+        err=buffers[proc.stderr].decode('utf-8','replace')
+        if proc.returncode not in allowed:raise DiscoveryError(args[0]+': '+err.strip()[:500])
+        completed=True
         return out
     finally:
-        if proc.poll() is None:
-            proc.terminate()
-            try:
-                proc.communicate(timeout=.3)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.communicate()
+        if not completed:
+            _stop_command_group(proc)
+        if selector is not None:
+            selector.close()
+        for stream in (proc.stdout,proc.stderr):
+            if stream:stream.close()
 
 
 def valid_mac(value):
@@ -218,6 +280,12 @@ def probe(network, address, cancel):
             cancel, timeout=2, allowed=(0, 1))
 
 
+class ScanWarnings(list):
+    """Backward-compatible warning list carrying auditable request counts."""
+    def __init__(self, values=(), metrics=None):
+        super().__init__(values);self.metrics=dict(metrics or {})
+
+
 def scan(network, cancel, progress=lambda *_: None, active=True, max_hosts=4096):
     current = discover_networks(cancel)
     if replace(network, selected_ipv4="") not in current:
@@ -225,36 +293,75 @@ def scan(network, cancel, progress=lambda *_: None, active=True, max_hosts=4096)
     warnings = []
     cached = neighbors(network, cancel)
     own = {str(ipaddress.ip_interface(a).ip) for a in network.addresses if network.contains(str(ipaddress.ip_interface(a).ip))}
-    targets = {r['ip'] for r in cached} if active else set()
+    budget=max(0,int(max_hosts))
+    targets=[];seen=set()
+    cached_candidates=0;ipv4_candidates=0;limited=False
+    if active:
+        for row in cached:
+            address=row['ip']
+            if address in own or address in seen:continue
+            cached_candidates+=1
+            if len(targets)<budget:targets.append(address);seen.add(address)
+            else:limited=True
     if active and shutil.which('ping'):
-        count = 0
         for prefix in network.networks:
             net = ipaddress.ip_network(prefix)
             if net.version == 4:
                 hosts = net.num_addresses - (2 if net.prefixlen < 31 else 0)
-                if hosts + count <= max_hosts:
-                    targets.update(str(a) for a in net.hosts())
-                    count += hosts
-                else:
+                ipv4_candidates+=max(0,hosts-len(own))
+                if hosts>budget:
+                    limited=True
                     warnings.append('large_network')
-        targets -= own
+                    continue
+                remaining=budget-len(targets)
+                if remaining<=0:
+                    if hosts:limited=True
+                    continue
+                for address in net.hosts():
+                    if cancel.is_set():raise Cancelled()
+                    value=str(address)
+                    if value in own or value in seen:continue
+                    if len(targets)>=budget:
+                        limited=True;break
+                    targets.append(value);seen.add(value)
+                if hosts>remaining:limited=True
+        if cached_candidates>budget:limited=True
+        metrics=dict(active_budget=budget,active_targets=len(targets),cached_targets=cached_candidates,
+                     ipv4_hosts=ipv4_candidates,active_limited=limited,passive_neighbor_rows=len(cached),
+                     hostname_lookups=0)
+        progress('coverage',metrics)
         progress('probing', len(targets))
         with ThreadPoolExecutor(max_workers=24) as pool:
-            pending = {pool.submit(probe, network, target, cancel): target for target in targets}
+            target_iter=iter(targets);pending={}
+            for _ in range(min(48,len(targets))):
+                target=next(target_iter,None)
+                if target is None:break
+                pending[pool.submit(probe,network,target,cancel)]=target
             done = 0
-            for future in as_completed(pending):
-                try:
-                    future.result()
-                except DiscoveryError:
-                    warnings.append('probe_failed')
-                done += 1
-                progress('progress', (done, len(targets)))
+            while pending:
+                finished,_=wait(pending,timeout=.1,return_when=FIRST_COMPLETED)
+                for future in finished:
+                    pending.pop(future)
+                    try:future.result()
+                    except DiscoveryError:warnings.append('probe_failed')
+                    done+=1;progress('progress',(done,len(targets)))
                 if cancel.is_set():
-                    for task in pending:
-                        task.cancel()
+                    for task in pending:task.cancel()
                     raise Cancelled()
+                while len(pending)<48:
+                    target=next(target_iter,None)
+                    if target is None:break
+                    pending[pool.submit(probe,network,target,cancel)]=target
     elif active:
+        metrics=dict(active_budget=budget,active_targets=0,cached_targets=cached_candidates,
+                     ipv4_hosts=0,active_limited=bool(cached_candidates),passive_neighbor_rows=len(cached),
+                     hostname_lookups=0)
+        progress('coverage',metrics)
         warnings.append('no_ping')
+    else:
+        metrics=dict(active_budget=budget,active_targets=0,cached_targets=len(cached),ipv4_hosts=0,
+                     active_limited=False,passive_neighbor_rows=len(cached),hostname_lookups=0)
+        progress('coverage',metrics)
     # IPv6 address spaces cannot be enumerated. Only observed local neighbors are used.
     warnings.append('ipv6_observed')
     observations = neighbors(network, cancel)
@@ -272,16 +379,32 @@ def scan(network, cancel, progress=lambda *_: None, active=True, max_hosts=4096)
             return address, (valid_hostname(socket.gethostname()), 'local')
         return address, resolve_hostname(address, network.interface, cancel, with_source=True)
     progress('resolving', len(observations))
+    metrics['hostname_lookups']=len({r['ip'] for r in observations})
     with ThreadPoolExecutor(max_workers=8) as pool:
-        for address, name in pool.map(resolve, sorted({r['ip'] for r in observations})):
-            names[address] = name
+        addresses=iter(sorted({r['ip'] for r in observations}));pending={}
+        for _ in range(16):
+            address=next(addresses,None)
+            if address is None:break
+            pending[pool.submit(resolve,address)]=address
+        while pending:
+            finished,_=wait(pending,timeout=.1,return_when=FIRST_COMPLETED)
+            for future in finished:
+                pending.pop(future);address,name=future.result();names[address]=name
+            if cancel.is_set():
+                for future in pending:future.cancel()
+                raise Cancelled()
+            while len(pending)<16:
+                address=next(addresses,None)
+                if address is None:break
+                pending[pool.submit(resolve,address)]=address
     if cancel.is_set():
         raise Cancelled()
     for obs in observations:
         obs['hostname'],obs['name_source'] = names.get(obs['ip'], ('', 'unknown'))
     if replace(network, selected_ipv4="") not in discover_networks(cancel):
         raise DiscoveryError('network_changed')
-    return observations, sorted(set(warnings))
+    if metrics.get('active_limited'):warnings.append('active_limit_reached')
+    return observations, ScanWarnings(sorted(set(warnings)),metrics)
 
 
 def recognition_scope(scope):
@@ -309,7 +432,20 @@ class Store:
     Changed MACs/IP-only matches are not silently merged. All address history is kept.
     """
     def __init__(self, path):
+        path=Path(path);path.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+        parent=path.parent.lstat()
+        if stat.S_ISLNK(parent.st_mode) or not stat.S_ISDIR(parent.st_mode) or parent.st_uid!=os.geteuid():
+            raise PermissionError('unsafe_data_directory')
+        os.chmod(path.parent,0o700)
+        try:
+            info=path.lstat()
+            if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_nlink!=1:
+                raise PermissionError('unsafe_database_file')
+            os.chmod(path,0o600)
+        except FileNotFoundError:
+            fd=os.open(path,os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600);os.close(fd)
         self.db = sqlite3.connect(path)
+        os.chmod(path,0o600)
         self.db.row_factory = sqlite3.Row
         self.db.executescript('''
         PRAGMA foreign_keys=ON;
@@ -327,6 +463,7 @@ class Store:
           first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, scan TEXT NOT NULL, first_scan TEXT NOT NULL,
           PRIMARY KEY(scope, mac, ip, interface));
         CREATE TABLE IF NOT EXISTS scan_snapshots (scan TEXT PRIMARY KEY, data TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS scan_metrics (scan TEXT PRIMARY KEY REFERENCES scans(id), data TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS observation_device ON observations(device);
         ''')
         columns={row['name'] for row in self.db.execute('PRAGMA table_info(observations)')}
@@ -358,16 +495,23 @@ class Store:
     def close(self):
         self.db.close()
 
+    def stats(self):
+        """Current on-disk database size and retained scan count; no history is pruned."""
+        path=Path(self.db.execute('PRAGMA database_list').fetchone()['file'])
+        size=path.stat().st_size if path.exists() else 0
+        return {'bytes':size,'scans':self.db.execute('SELECT COUNT(*) FROM scans').fetchone()[0]}
+
     def compatible_scopes(self, scope):
         # Read old scopes as-is: no destructive schema/data migration required.
         key = recognition_scope(scope)
         existing = [r[0] for r in self.db.execute('SELECT DISTINCT scope FROM scans')]
         return sorted({scope, *(s for s in existing if recognition_scope(s) == key)})
 
-    def commit_scan(self, network, observations, warnings=()):
+    def commit_scan(self, network, observations, warnings=(), metrics=None):
         stamp, scan_id = now(), uuid.uuid4().hex
         with self.db:
             self.db.execute('INSERT INTO scans VALUES(?,?,?,?)', (scan_id, network.scope, stamp, json.dumps(warnings)))
+            self.db.execute('INSERT INTO scan_metrics VALUES(?,?)',(scan_id,json.dumps(metrics or {},sort_keys=True)))
             for obs in observations:
                 mac = valid_mac(obs.get('mac'))
                 if not mac or not network.contains(obs['ip']) or obs['interface'] != network.interface:
@@ -501,22 +645,41 @@ class Vendors:
             if not {'Assignment', 'Organization Name'} <= set(reader.fieldnames or []):
                 raise ValueError('invalid_oui')
             for row in reader:
-                prefix = row['Assignment'].strip().upper()
-                if re.fullmatch(r'[0-9A-F]{6}|[0-9A-F]{7}|[0-9A-F]{9}', prefix):
-                    prefixes[prefix] = row['Organization Name'].strip()
+                if not isinstance(row,dict):raise ValueError('invalid_oui')
+                raw_prefix=row.get('Assignment');raw_vendor=row.get('Organization Name')
+                if not isinstance(raw_prefix,str):continue
+                prefix=raw_prefix.strip().upper()
+                if re.fullmatch(r'[0-9A-F]{6}|[0-9A-F]{7}|[0-9A-F]{9}',prefix):
+                    if not isinstance(raw_vendor,str) or not raw_vendor.strip():raise ValueError('invalid_oui')
+                    prefixes[prefix]=raw_vendor.strip()
         if not prefixes:
             raise ValueError('empty_oui')
-        return cls({'date': date, 'source': OUI_URLS, 'prefixes': prefixes})
+        return cls._validated({'date': date, 'source': OUI_URLS, 'prefixes': prefixes})
+
+    @classmethod
+    def _validated(cls,data):
+        if not isinstance(data,dict):raise ValueError('invalid_oui')
+        prefixes,date=data.get('prefixes'),data.get('date')
+        if not isinstance(prefixes,dict) or not prefixes or not isinstance(date,str):raise ValueError('invalid_oui')
+        if any(not isinstance(prefix,str) or not re.fullmatch(r'[0-9A-F]{6}|[0-9A-F]{7}|[0-9A-F]{9}',prefix)
+               or not isinstance(vendor,str) or not vendor.strip() for prefix,vendor in prefixes.items()):
+            raise ValueError('invalid_oui')
+        date_value=date.removesuffix(' (ieee-data)').split(' – ') if date else []
+        try:
+            if len(date_value) not in (0,1,2):raise ValueError()
+            for value in date_value:
+                if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',value):raise ValueError()
+                datetime.strptime(value,'%Y-%m-%d')
+        except ValueError:raise ValueError('invalid_oui') from None
+        return cls(data)
 
     @classmethod
     def load(cls, custom):
         if custom is not None and custom.exists():
             data = json.loads(custom.read_text())
-            if not isinstance(data, dict):
-                raise ValueError('invalid_oui')
+            if not isinstance(data, dict):raise ValueError('invalid_oui')
             prefixes, date = data.get('prefixes'), data.get('date')
-            if not isinstance(prefixes, dict) or not isinstance(date, str):
-                raise ValueError('invalid_oui')
+            if not isinstance(prefixes, dict) or not isinstance(date, str):raise ValueError('invalid_oui')
             if date:
                 dates = date.removesuffix(' (ieee-data)').split(' – ')
                 try:
@@ -528,12 +691,7 @@ class Vendors:
                         datetime.strptime(value, '%Y-%m-%d')
                 except ValueError as exc:
                     raise ValueError('invalid_oui') from exc
-            if any(not isinstance(prefix, str) or
-                   not re.fullmatch(r'[0-9A-F]{6}|[0-9A-F]{7}|[0-9A-F]{9}', prefix) or
-                   not isinstance(vendor, str) or not vendor.strip()
-                   for prefix, vendor in prefixes.items()):
-                raise ValueError('invalid_oui')
-            return cls(data)
+            return cls._validated(data)
         sources = list((ROOT / 'vendor').glob('*.csv'))
         if not sources:
             return cls()
@@ -585,6 +743,7 @@ class Vendors:
             dates = sorted({value[:10] for value in source_dates.values()})
             date = (dates[0] if len(dates) == 1 else dates[0] + ' – ' + dates[-1]) if len(source_dates) == len(OUI_URLS) else ''
             instance = cls.parse(sources, date)
+            cls._validated(instance.data)
             instance.data.update(fetched_at=fetched, source_dates=source_dates)
             if cancel.is_set():
                 raise Cancelled()

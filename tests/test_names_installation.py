@@ -73,7 +73,7 @@ class NameTests(unittest.TestCase):
         app_root = stage / 'usr/share/showipmac'
         self.assertTrue((app_root / 'languages.py').is_file())
         self.assertFalse((app_root / 'github').exists())
-        self.assertFalse((app_root / 'start.sh').exists())
+        self.assertFalse((app_root / '.start.sh').exists())
         with patch('showipmac.ROOT', app_root), patch.dict('os.environ', {'XDG_CONFIG_HOME': str(self.path / 'xdg')}, clear=True):
             self.assertEqual(data_path(), self.path / 'xdg/showipmac')
         output = subprocess.check_output(['/usr/bin/python3', '-B', str(app_root / 'showipmac.py'), '--version'], text=True)

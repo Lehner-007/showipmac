@@ -5,6 +5,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
+import stat
 import sys
 import threading
 import webbrowser
@@ -15,10 +16,26 @@ from runtime import Runtime, native_language
 from core import PROJECT_URL
 
 
+class PrivateRotatingFileHandler(RotatingFileHandler):
+    """Create every log generation as an owner-only regular file."""
+    def _open(self):
+        flags=os.O_WRONLY|os.O_APPEND|os.O_CREAT|getattr(os,'O_NOFOLLOW',0)
+        fd=os.open(self.baseFilename,flags,0o600)
+        try:
+            info=os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.geteuid() or info.st_nlink!=1:
+                raise PermissionError('unsafe_log_file')
+            os.fchmod(fd,0o600)
+            return os.fdopen(fd,self.mode,encoding=self.encoding,errors=self.errors)
+        except BaseException:
+            os.close(fd)
+            raise
+
+
 def data_path():
     if os.environ.get('SHOWIPMAC_DATA_DIR'):
         return Path(os.environ['SHOWIPMAC_DATA_DIR'])
-    if (ROOT / 'start.sh').exists():
+    if (ROOT / '.start.sh').exists():
         return ROOT / '.config'
     return Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'showipmac'
 
@@ -58,9 +75,20 @@ def main():
     from modules.runtime_paths import remember_installed_locations
     remember_installed_locations()
     runtime = Runtime(args.data_dir)
-    (runtime.path / 'logs').mkdir(exist_ok=True)
+    log_dir=runtime.path/'logs';log_dir.mkdir(exist_ok=True,mode=0o700)
+    log_dir_info=log_dir.lstat()
+    if log_dir.is_symlink() or not log_dir_info.is_dir() or log_dir_info.st_uid!=os.geteuid():
+        raise PermissionError('unsafe_log_directory')
+    os.chmod(log_dir,0o700)
     try:
-        handler = RotatingFileHandler(runtime.path / 'logs/showipmac.log', maxBytes=500_000, backupCount=2, encoding='utf-8')
+        log_path=log_dir/'showipmac.log'
+        if log_path.exists() or log_path.is_symlink():
+            log_info=log_path.lstat()
+            if log_path.is_symlink() or not log_info.is_file() or log_info.st_uid!=os.geteuid() or log_info.st_nlink!=1:
+                raise PermissionError('unsafe_log_file')
+            os.chmod(log_path,0o600)
+        handler = PrivateRotatingFileHandler(log_path, maxBytes=500_000, backupCount=2, encoding='utf-8')
+        os.chmod(log_path,0o600)
         logging.basicConfig(level=logging.INFO, handlers=[handler], format='%(asctime)s %(levelname)s %(message)s', datefmt='%d.%m.%Y %H:%M:%S')
     except OSError:
         logging.basicConfig(level=logging.INFO)
@@ -107,6 +135,7 @@ def create_application(runtime):
             self.status_key = 'ready'
             self.status_args = {}
             self.warning_keys = list(runtime.warnings)
+            self.scan_metrics = {}
             self.sort_column = 'ipv4'
             self.sort_reverse = False
             self.actions = {}
@@ -164,6 +193,8 @@ def create_application(runtime):
             top.append(self.version_label)
             self.vendor_label = Gtk.Label(xalign=1, hexpand=True, wrap=True)
             top.append(self.vendor_label)
+            self.database_label = Gtk.Label(xalign=1, wrap=True)
+            top.append(self.database_label)
             network_row = self.row(box)
             network_row.append(self.label('network'))
             self.network_select = Gtk.DropDown.new_from_strings([])
@@ -238,6 +269,7 @@ def create_application(runtime):
             self.filter.set_model(Gtk.StringList.new([self.text(k) for k in self.filter_keys]))
             self.filter.set_selected(min(selected, len(self.filter_keys)-1))
             self.update_vendor_label()
+            self.update_database_label()
             self.window.set_direction(Gtk.TextDirection.RTL if self.rt.settings['language'].replace('-', '_').split('_')[0] in ('ar', 'he', 'fa', 'ur') else Gtk.TextDirection.LTR)
             self.update_network_labels()
             self.set_status(self.status_key, **self.status_args)
@@ -268,6 +300,11 @@ def create_application(runtime):
             self.vendor_label.set_label(label)
             self.vendor_label.set_tooltip_text('\n'.join(
                 name + ': ' + local_time(stamp) for name, stamp in self.vendors.data.get('source_dates', {}).items()))
+
+        def update_database_label(self):
+            stats=self.store.stats();size=stats['bytes']
+            human=(f'{size/1024:.1f} KiB' if size<1024*1024 else f'{size/1024/1024:.1f} MiB')
+            self.database_label.set_label(self.text('database_stats',size=human,scans=stats['scans']))
 
         def change_language(self, language):
             self.rt.settings['language'] = language
@@ -422,7 +459,12 @@ def create_application(runtime):
             return False
 
         def show_warnings(self):
-            self.warnings.set_label('\n'.join(self.text(k) for k in dict.fromkeys(self.warning_keys)))
+            lines=[self.text(k) for k in dict.fromkeys(self.warning_keys)]
+            if self.scan_metrics:
+                lines.append(self.text('scan_coverage',active=self.scan_metrics.get('active_targets',0),
+                    budget=self.scan_metrics.get('active_budget',0),cached=self.scan_metrics.get('cached_targets',0),
+                    passive=self.scan_metrics.get('passive_neighbor_rows',0),lookups=self.scan_metrics.get('hostname_lookups',0)))
+            self.warnings.set_label('\n'.join(lines))
 
         def selected_network(self):
             selected = self.network_select.get_selected()
@@ -569,6 +611,9 @@ def create_application(runtime):
             return True
 
         def progress(self, key, value):
+            if key=='coverage':
+                self.scan_metrics=dict(value)
+                return
             event = self.cancel_event
             def apply():
                 if self.cancel_event is not event or event.is_set() or not self.progress_dialog:
@@ -595,7 +640,9 @@ def create_application(runtime):
             self.set_status('busy')
             def done(result):
                 observations, self.warning_keys = result
-                self.store.commit_scan(network, observations, self.warning_keys)
+                self.scan_metrics=dict(getattr(self.warning_keys,'metrics',{}))
+                self.store.commit_scan(network, observations, self.warning_keys,self.scan_metrics)
+                self.update_database_label()
                 logging.info(self.text('log_scan'))
                 self.network_changed()
                 self.set_status('complete', **scan_summary(self.devices))

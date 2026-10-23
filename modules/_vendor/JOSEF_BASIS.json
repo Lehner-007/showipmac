@@ -1,0 +1,27 @@
+{
+  "bibliothek": "josef_basis",
+  "version": "0.1.0",
+  "profil": "Python-Module ohne optionale Sprach- und Hilferessourcen",
+  "dateien": {
+    "__init__.py": "f3195b8f91e732abf2b2bfbd5866d7815fa4bd00118ba468664dfa0f2fbd32f8",
+    "_version.py": "91447944015cec709e8aa7655f7e9d64e1e4508e7023a57fe3746911c0fc6fed",
+    "demo.py": "1ea8c0db8b8faf27a1b334d365f02b1f335c9dd5fafffc61f5655e90c1c6607e",
+    "export.py": "e02c1156c510637b9840fed27a2be4aa20e2547f34d1173b4caed890b70a0227",
+    "file_dialogs.py": "4862ca00d3556228c24ec9caccb4619952d38c14c14ad53cea69188f5d93ab4a",
+    "gui.py": "912f0c29b3443a0d1d376ec53f17ea7189c52d3cd020c63d4d72011fb804f64d",
+    "i18n.py": "aff34505d7f3d88561a86678d5474999281c7d18a1282069f7f8b81ec36c3e45",
+    "jobs.py": "4959075379462b8ebd30b9c924367ba47e37fba897478ab56560d8f8c7ce3ffe",
+    "languages.py": "b9dd68ae49a4bd01822c0b30318918630afda9c7d1ba505bc9ec4f8e1f8721ab",
+    "logs.py": "79d5b198cb80469cd802f3a87456f91e2fd765de9534dca7a1945042c9b3d549",
+    "menus.py": "3bf4f4adb9ccd1bb5e03d8a152934e8426f985f751876dafec15bebd49ea46d6",
+    "model.py": "57963582c1a49a99670067084b9893b43142871ad2b901735e23eeaa03ebe89b",
+    "profile_dialog.py": "5484a451159b8ac27e77be6f8ae4cece9cd3adb21c39d0da90ab3ee0dd51925b",
+    "profiles.py": "c3049429beabc6177db94e54fd1118bfbcb82ac4da49785632096a71026e4204",
+    "project.py": "8fae10f2989d96347deb2233fa91e091a27eb9bc15695a77577caf7d85c0b60b",
+    "results.py": "ce6359848198bfa2f28a9f2c01bbe623d73c26a2e13aac2a13845403d76e4d99",
+    "tool_info.py": "58cb08df935ef908ad3e83db2e41946fb2968bdf121d192963e7459aa3540600",
+    "updates.py": "537d76c8d7209c6d0f66bd34d38efb9b9019b3f438b7e1b1f127ce5e5c46a22e",
+    "window_state.py": "71ca17b6633065dcfc7f83751c622182456c5faef670e3db3254a484f755d2b9",
+    "windows.py": "05618a933e6fc70a62854b746f7d3edd1d019e94dfd4ab4d6e24dafbadb066f6"
+  }
+}

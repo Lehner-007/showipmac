@@ -1,9 +1,9 @@
 {
   "program_id": "showipmac",
-  "version": "0.8.0",
+  "version": "0.8.6",
   "deb": {
-    "url": "https://github.com/Lehner-007/showipmac/releases/download/v0.8.0/showipmac_0.8.0_all.deb",
-    "filename": "showipmac_0.8.0_all.deb",
-    "sha256": "b7f2352d942a4be3b83fccff3fda2d07623084851600e0221003635719babbc4"
+    "url": "https://github.com/Lehner-007/showipmac/releases/download/v0.8.6/showipmac_0.8.6_all.deb",
+    "filename": "showipmac_0.8.6_all.deb",
+    "sha256": "241832e01733d5a9f8609182bba2afb70674d938e9acc65d73b9a5406f98cd80"
   }
 }

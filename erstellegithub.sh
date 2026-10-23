@@ -14,8 +14,8 @@ import sys
 import tempfile
 
 ROOT=Path(sys.argv[1]).resolve()
-ROOT_FILES={'showipmac.py','core.py','runtime.py','presentation.py','languages.py','THIRD_PARTY.md','README.md','CHANGELOG.md','LICENSE',
-            'start.sh','erstellezip.sh','erstelledeb.sh','erstellegithub.sh','.gitignore',
+ROOT_FILES={'showipmac.py','showipmac.desktop','core.py','runtime.py','presentation.py','languages.py','THIRD_PARTY.md','README.md','CHANGELOG.md','LICENSE',
+            '.start.sh','erstellezip.sh','erstelledeb.sh','erstellegithub.sh','.gitignore',
             '.gitattributes','pyproject.toml','setup.cfg','setup.py',
             'requirements.txt','requirements-dev.txt','MANIFEST.in'}
 SOURCE_DIRS={'modules','tests','assets','help','lang','docs','github','.github','packaging','vendor'}
@@ -43,7 +43,10 @@ class Refused(Exception):pass
 def fail(message):raise Refused(message)
 
 def excluded(path):
- return str(path) in {'fehler.txt','TESTBERICHT.md','python_showipmac.md'} or any(part in EXCLUDED_DIRS for part in path.parts) or path.suffix.lower() in EXCLUDED_SUFFIXES or path.name.endswith('~') or path.name.startswith('.#')
+ return (str(path) in {'fehler.txt','TESTBERICHT.md','python_showipmac.md','BIBLIOTHEK.md'}
+         or path.name.startswith('Pruefbericht_')
+         or any(part in EXCLUDED_DIRS for part in path.parts)
+         or path.suffix.lower() in EXCLUDED_SUFFIXES or path.name.endswith('~') or path.name.startswith('.#'))
 
 def secret_name(path):
  name=path.name.lower()
@@ -118,7 +121,10 @@ def validate_index(candidates):
  removed=[]
  for name in filter(None,names):
   p=Path(name)
-  if secret_name(p) or not eligible(p):fail(f'Unzulässige Datei bereits im Git-Index: {p}')
+  # start.sh was part of older public snapshots; it is intentionally removed
+  # from the current source in favor of the private .start.sh launcher.
+  retired_start=p==Path('start.sh') and not (ROOT/p).exists()
+  if secret_name(p) or (not eligible(p) and not retired_start):fail(f'Unzulässige Datei bereits im Git-Index: {p}')
   if p not in candidates:
    if (ROOT/p).exists():fail(f'Git-Datei fehlt im geprüften Umfang: {p}')
    removed.append(p)

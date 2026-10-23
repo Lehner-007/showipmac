@@ -6,7 +6,7 @@ from .model import ROOT, config_dir
 
 
 def initial_folder(folder=None):
-    candidate = Path(folder) if folder else (ROOT if (ROOT / 'start.sh').is_file() else Path.home())
+    candidate = Path(folder) if folder else (ROOT if (ROOT / '.start.sh').is_file() else Path.home())
     return candidate if candidate.is_dir() else Path.home()
 
 

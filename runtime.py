@@ -4,6 +4,7 @@ import logging
 import locale
 import os
 import re
+import stat
 from pathlib import Path
 from core import ROOT, LANGUAGE_SOURCE_URL, VERSION_INFO_URL, atomic_json
 
@@ -16,7 +17,11 @@ DEFAULTS = {'config_version': 1, 'language': 'de', 'active': True, 'max_hosts': 
 class Runtime:
     def __init__(self, path):
         self.path = Path(path)
-        self.path.mkdir(parents=True, exist_ok=True)
+        self.path.mkdir(parents=True, exist_ok=True,mode=0o700)
+        info=self.path.lstat()
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.geteuid():
+            raise PermissionError('unsafe_data_directory')
+        os.chmod(self.path,0o700)
         self.settings = dict(DEFAULTS)
         self.warnings = []
         config = self.path / 'settings.json'
