@@ -25,7 +25,7 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
 from email.utils import parsedate_to_datetime
 
-VERSION = '0.8.6'
+VERSION = '0.9.0'
 ROOT = Path(__file__).resolve().parent
 PROJECT_URL = 'https://github.com/Lehner-007/showipmac'
 LANGUAGE_SOURCE_URL = 'https://raw.githubusercontent.com/Lehner-007/showipmac/main/github/sprachpakete'
@@ -172,27 +172,75 @@ class Network:
             return False
 
 
+def _network_row_info(row, sysroot=Path('/sys/class/net'), carrier=''):
+    """Normalize one iproute2 row for both scan selection and its explanation."""
+    flags = row.get('flags') if isinstance(row.get('flags'), list) else []
+    interface = str(row.get('ifname') or '')
+    state = str(row.get('operstate') or 'unknown').strip().lower()
+    addr_info = row.get('addr_info') if isinstance(row.get('addr_info'), list) else []
+    addresses = []
+    for item in addr_info:
+        if not isinstance(item, dict):
+            continue
+        if item.get('family') not in ('inet', 'inet6') or item.get('tentative') or item.get('dadfailed'):
+            continue
+        try:
+            address = ipaddress.ip_interface(f"{item['local']}/{item['prefixlen']}")
+            if not address.ip.is_loopback and not address.ip.is_unspecified:
+                addresses.append(str(address))
+        except (KeyError, ValueError):
+            continue
+
+    ipv4 = any(':' not in address for address in addresses)
+    ipv6 = any(':' in address for address in addresses)
+    reason = ''
+    if not interface or 'LOOPBACK' in flags:
+        reason = 'excluded'
+    elif 'UP' not in flags:
+        reason = 'interface_disabled'
+    elif state == 'notpresent':
+        reason = 'device_not_present'
+    elif state == 'testing':
+        reason = 'kernel_testing'
+    elif state == 'dormant':
+        reason = 'link_dormant'
+    elif state == 'lowerlayerdown':
+        reason = 'lower_layer_down'
+    elif state == 'down' and carrier == '0':
+        reason = 'no_carrier'
+    elif state == 'down':
+        reason = 'kernel_link_down'
+    elif state not in ('up', 'unknown'):
+        reason = 'state_unconfirmed'
+    elif not ipv4 and ipv6:
+        reason = 'ipv6_only'
+    elif not addresses:
+        reason = 'no_address'
+    elif not ipv4:
+        reason = 'no_ipv4'
+    elif state == 'unknown':
+        reason = 'usable_state_unknown'
+    else:
+        reason = 'network_ready'
+
+    network = None
+    if interface and 'UP' in flags and state in ('up', 'unknown') and addresses:
+        linkinfo = row.get('linkinfo')
+        virtual = bool(linkinfo.get('info_kind')) if isinstance(linkinfo, dict) else False
+        virtual = virtual or not (sysroot / interface / 'device').exists()
+        network = Network(interface, tuple(addresses), valid_mac(row.get('address')), virtual)
+    return {
+        'interface': interface, 'operstate': state, 'addresses': addresses,
+        'ipv4': ipv4, 'ipv6': ipv6, 'reason': reason, 'network': network,
+    }
+
+
 def networks_from_json(rows):
     result = []
     for row in rows:
-        if 'LOOPBACK' in row.get('flags', []) or 'UP' not in row.get('flags', []):
-            continue
-        if row.get('operstate') not in ('UP', 'UNKNOWN'):
-            continue
-        addresses = []
-        for item in row.get('addr_info', []):
-            if item.get('family') not in ('inet', 'inet6') or item.get('tentative') or item.get('dadfailed'):
-                continue
-            try:
-                addr = ipaddress.ip_interface(f"{item['local']}/{item['prefixlen']}")
-                if not addr.ip.is_loopback and not addr.ip.is_unspecified:
-                    addresses.append(str(addr))
-            except (KeyError, ValueError):
-                continue
-        if addresses:
-            interface = row['ifname']
-            virtual = bool(row.get('linkinfo', {}).get('info_kind')) or not (Path('/sys/class/net') / interface / 'device').exists()
-            result.append(Network(interface, tuple(addresses), valid_mac(row.get('address')), virtual))
+        network = _network_row_info(row)['network']
+        if network is not None:
+            result.append(network)
     return result
 
 
@@ -249,8 +297,49 @@ def resolve_hostname(address, interface, cancel, with_source=False):
     return ('', 'unknown') if with_source else ''
 
 
-def discover_networks(cancel=None):
-    return networks_from_json(json.loads(command(['ip', '-j', '-d', 'address', 'show'], cancel)))
+def discover_networks(cancel=None, diagnostics=None):
+    """Discover scan-ready IPv4 networks and optionally retain kernel link evidence.
+
+    The optional list includes interfaces that cannot be scanned, so the GUI can
+    explain why no network appears without treating missing evidence as failure.
+    """
+    rows=json.loads(command(['ip', '-j', '-d', 'address', 'show'], cancel))
+    if not isinstance(rows,list):
+        raise DiscoveryError('invalid_interface_data')
+    if diagnostics is not None:
+        diagnostics.clear()
+        for row in rows:
+            interface = str(row.get('ifname') or '')
+            if not interface:
+                continue
+            sys_path=Path('/sys/class/net')/interface
+            def read_field(name):
+                try:return (sys_path/name).read_text().strip()
+                except OSError:return ''
+            linkinfo=row.get('linkinfo')
+            virtual=bool(linkinfo.get('info_kind')) if isinstance(linkinfo,dict) else False
+            virtual=virtual or not (sys_path/'device').exists()
+            carrier=read_field('carrier') if not virtual else ''
+            info = _network_row_info(row, carrier=carrier)
+            if not interface or info['reason'] == 'excluded':
+                continue
+            operstate=info['operstate']
+            ipv4=info['ipv4']
+            ipv6=info['ipv6']
+            reason=info['reason']
+            driver=''
+            try:
+                driver=(sys_path/'device/driver').resolve(strict=True).name
+            except (OSError,RuntimeError):
+                pass
+            counters={}
+            for key in ('carrier_changes','carrier_up_count','carrier_down_count'):
+                value=read_field(key)
+                if value.isdigit():counters[key]=int(value)
+            diagnostics.append({'interface':interface,'operstate':operstate,'carrier':carrier,
+                'driver':driver,'virtual':virtual,'address_count':len(info['addresses']),
+                'ipv4':ipv4,'ipv6':ipv6,'reason':reason,**counters})
+    return networks_from_json(rows)
 
 
 def neighbors(network, cancel):

@@ -11,7 +11,7 @@ import threading
 import webbrowser
 
 from core import ROOT, VERSION, Cancelled, Store, Vendors, discover_networks, export, scan, network_options, network_label, VendorUpdateError
-from presentation import local_time, cell_value, device_sort_key, scan_summary, display_date, connection_labels, selection_label
+from presentation import local_time, cell_value, device_sort_key, scan_summary, display_date, connection_labels, selection_label, interface_diagnostic_lines
 from runtime import Runtime, native_language
 from core import PROJECT_URL
 
@@ -128,6 +128,7 @@ def create_application(runtime):
             self.cancel_event = threading.Event()
             self.closing = False
             self.networks = []
+            self.interface_diagnostics = []
             self.detected_networks = []
             self.devices = []
             self.visible_devices = []
@@ -201,6 +202,9 @@ def create_application(runtime):
             self.network_select.set_hexpand(True)
             self.network_select.connect('notify::selected', self.network_changed)
             network_row.append(self.network_select)
+            self.interface_status = Gtk.Label(xalign=0, yalign=0, wrap=True, selectable=True)
+            self.interface_status.add_css_class('dim-label')
+            box.append(self.interface_status)
             filters = self.row(box)
             self.search = Gtk.SearchEntry(hexpand=True)
             self.search.set_property('placeholder-text', self.text('search'))
@@ -272,6 +276,7 @@ def create_application(runtime):
             self.update_database_label()
             self.window.set_direction(Gtk.TextDirection.RTL if self.rt.settings['language'].replace('-', '_').split('_')[0] in ('ar', 'he', 'fa', 'ur') else Gtk.TextDirection.LTR)
             self.update_network_labels()
+            self.update_interface_status()
             self.set_status(self.status_key, **self.status_args)
             self.show_warnings()
             self.render_devices()
@@ -415,6 +420,20 @@ def create_application(runtime):
                 rows = [('network', network_label(network, self.text('no_ipv4'))),
                         ('connection', connection or self.text('unknown')),
                         ('interface_name', network.interface), ('mac', network.mac or self.text('unknown'))]
+                interface_state=next((row for row in self.interface_diagnostics
+                                      if row.get('interface')==network.interface),None)
+                if interface_state:
+                    state=interface_state.get('operstate','unknown')
+                    state_key='kernel_state_'+state if state in ('up','down','dormant','lowerlayerdown','notpresent','testing','unknown') else 'kernel_state_unknown'
+                    carrier=interface_state.get('carrier')
+                    carrier_key='kernel_carrier_'+carrier if carrier in ('0','1') else 'kernel_carrier_unavailable'
+                    rows.extend([('kernel_operstate',self.text(state_key)),
+                                 ('kernel_carrier',self.text(carrier_key)),
+                                 ('kernel_link_interpretation',self.text('interface_reason_'+interface_state.get('reason','state_unconfirmed'))),
+                                 ('kernel_driver',interface_state.get('driver') or self.text('unknown'))])
+                    for counter in ('carrier_changes','carrier_up_count','carrier_down_count'):
+                        if counter in interface_state:
+                            rows.append((counter,self.text(counter,count=interface_state[counter])))
                 for version, title in ((4, 'ipv4'), (6, 'ipv6')):
                     addresses = [ipaddress.ip_interface(a) for a in network.addresses if ipaddress.ip_interface(a).version == version]
                     rows.append((title + '_addresses', '\n'.join(str(a.ip) for a in addresses) or self.text('unknown')))
@@ -477,20 +496,37 @@ def create_application(runtime):
                 selection_label(n, connections.get(n.interface, ''), self.text('no_ipv4')) for n in self.networks]))
             if self.networks:
                 self.network_select.set_selected(min(selected, len(self.networks)-1))
+            self.update_interface_status()
+
+        def update_interface_status(self):
+            if not hasattr(self, 'interface_status'):
+                return
+            net=self.selected_network()
+            if not self.interface_diagnostics:
+                self.interface_status.set_label(self.text('interface_status_unavailable'))
+                return
+            heading=self.text('interface_status_heading')
+            lines=interface_diagnostic_lines(self.interface_diagnostics,net.interface if net else None,self.text)
+            self.interface_status.set_label(heading+'\n'+lines)
 
         def refresh(self, *_):
             if self.worker:
                 return
             def done(networks):
-                self.detected_networks = list(networks)
+                discovered, self.interface_diagnostics = networks
+                self.detected_networks = list(discovered)
                 self.networks = network_options(self.detected_networks)
                 self.update_network_labels()
                 self.network_changed()
                 self.set_status('ready' if self.networks else 'no_network')
-            self.run_job(lambda: discover_networks(self.cancel_event), done, title_key='task_discovery')
+            def collect_network_state():
+                diagnostics=[]
+                return discover_networks(self.cancel_event, diagnostics), diagnostics
+            self.run_job(collect_network_state, done, title_key='task_discovery')
 
         def network_changed(self, *_):
             net = self.selected_network()
+            self.update_interface_status()
             try:
                 self.devices = self.store.devices(net.scope) if net else []
                 for device in self.devices:

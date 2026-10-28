@@ -88,3 +88,32 @@ def connection_labels(networks, text, sysroot=None):
 def selection_label(network, connection, no_ipv4):
     from core import network_label
     return network_label(network, no_ipv4) + ' — ' + ((connection + ' → ') if connection else '') + network.interface
+
+
+def interface_diagnostic_lines(records, selected_interface, text, limit=5):
+    """Format kernel-reported interface state without claiming root cause."""
+    by_name={row.get('interface'):row for row in records if row.get('interface')}
+    if selected_interface:
+        rows=[by_name[selected_interface]] if selected_interface in by_name else []
+    else:
+        rows=[by_name[name] for name in sorted(by_name)[:limit]]
+    if not rows:
+        return text('interface_status_unavailable')
+    result=[]
+    for row in rows:
+        state=row.get('operstate','unknown')
+        state_label=text('kernel_state_'+state if state in ('up','down','dormant','lowerlayerdown','notpresent','testing','unknown') else 'kernel_state_unknown')
+        carrier=row.get('carrier')
+        carrier_label=text('kernel_carrier_'+carrier if carrier in ('0','1') else 'kernel_carrier_unavailable')
+        driver=row.get('driver') or text('unknown')
+        reason=text('interface_reason_'+row.get('reason','state_unconfirmed'))
+        counts=[]
+        for key,label in (('carrier_changes','carrier_changes'),('carrier_up_count','carrier_up_count'),('carrier_down_count','carrier_down_count')):
+            if key in row:counts.append(text(label,count=row[key]))
+        detail=text('interface_status_line',interface=row['interface'],state=state_label,
+                    carrier=carrier_label,driver=driver,addresses=row.get('address_count',0),reason=reason)
+        if counts:detail+=' · '+', '.join(counts)
+        result.append(detail)
+    if not selected_interface and len(by_name)>len(rows):
+        result.append(text('interface_status_more',count=len(by_name)-len(rows)))
+    return '\n'.join(result)

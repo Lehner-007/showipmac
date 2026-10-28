@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import *
+from core import _network_row_info
 from runtime import Runtime
 
 NET = Network('test0', ('192.0.2.1/27', '2001:db8::1/64'), '00:11:22:33:44:55', True)
@@ -38,6 +39,26 @@ class CoreTests(unittest.TestCase):
         self.assertIn('192.0.2.0/27',nets[0].networks)
         self.assertFalse(nets[0].contains('192.0.2.80'))
         self.assertFalse(nets[0].contains('ff02::1'))
+
+    def test_kernel_state_diagnostic_matches_scan_selection(self):
+        row = dict(ifname='test0', flags=['UP'], address=NET.mac,
+                   addr_info=[dict(family='inet', local='192.0.2.1', prefixlen=27)])
+        expected = {
+            'UP': ('network_ready', True),
+            'UNKNOWN': ('usable_state_unknown', True),
+            'DOWN': ('kernel_link_down', False),
+            'DORMANT': ('link_dormant', False),
+            'LOWERLAYERDOWN': ('lower_layer_down', False),
+            'NOTPRESENT': ('device_not_present', False),
+            'TESTING': ('kernel_testing', False),
+            'UNRECOGNIZED': ('state_unconfirmed', False),
+        }
+        for state, (reason, selectable) in expected.items():
+            with self.subTest(state=state):
+                info = _network_row_info({**row, 'operstate': state})
+                self.assertEqual(info['reason'], reason)
+                networks = [info['network']] if info['network'] else []
+                self.assertEqual(bool(network_options(networks)), selectable)
 
     def test_ipv4_ipv6_merge(self):
         self.store.commit_scan(NET,[observation(),observation('2001:db8::2')])

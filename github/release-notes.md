@@ -1,9 +1,9 @@
-showipmac 0.8.6
+showipmac 0.9.0
 
-- Behebt SM-085-01: abgebrochene Netzwerkbefehle und ihre Kindprozesse werden auch nach dem Ende des Elternprozesses zuverlässig beendet.
-- Begrenzt die gespeicherte Befehlsausgabe und erhält Rückgabecode sowie Ausgabe für die aufrufenden Funktionen.
-- Regressionstests decken Zeitüberschreitung, SIGTERM/SIGKILL-Eskalation und Abbruch ab.
+- Ergänzt die Kernelstatusanzeige für Netzwerkschnittstellen mit Betriebszustand, Linksignal, Treiber und verfügbaren Linkwechselzählern.
+- Erklärt nicht scanbare Schnittstellen, einschließlich TESTING und nicht vorhandener Geräte, ohne eine Ursache oder Erreichbarkeit zu behaupten.
+- Vereinheitlicht die Zustandslogik für Diagnose und Netzauswahl.
+- Vervollständigt die acht Zusatzsprachpakete für die neuen Statusmeldungen.
+- Enthält weiterhin die Prozessbereinigung aus 0.8.6 für Abbruch und Zeitüberschreitung.
 
-Installation: `sudo apt install ./showipmac_0.8.6_all.deb`
-
-Das Paket wird aus dem Quelltag v0.8.6 gebaut. Paketversion, Programmdateien und SHA-256 werden geprüft. Bestehende Gerätedaten und Einstellungen bleiben bei Aktualisierung erhalten; es erfolgt keine automatische Installation.
+Paket und SHA-256-Prüfsumme werden als Release-Anhänge bereitgestellt. Die Installation erfolgt manuell.

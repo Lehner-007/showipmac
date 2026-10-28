@@ -1,15 +1,24 @@
-## Aktueller Stand 0.8.0 – 06.10.2026
+# showipmac
+
+**Projektversion: 0.9.0** · zentrale Versionsquelle: `core.VERSION`.
+DEB und GitHub-Quellstand werden aus dem passenden Versionstag erstellt.
+
+## Historischer Stand 0.8.0 – 06.10.2026
 
 Eindeutige temporäre JSON-Dateien mit kontrollierter Bereinigung; validierte Herstellerdateien und kontrollierter Rückfall auf gebündelte IEEE-Daten; Veröffentlichungstest und Großnetztest korrigiert; acht Sprach-/Hilfepakete nachgepflegt; IEEE-Listen vom 05.10.2026.
 
 Gerätedetails unterscheiden vorhandenen Nachbarcache, erstmals im Scan erfasste Nachbareinträge und den eigenen Rechner. Die Erfassungszeit beweist keine Antwort. Technische Namen behalten die Quelle NSS (konkreter Dienst unbekannt), mDNS/Avahi oder lokal; eigene Namen bleiben erhalten. Zwei MACs mit derselben IP im selben abgeschlossenen Scan auf derselben Schnittstelle werden als möglicher Konflikt gemeldet (auch Proxy-ARP möglich). Frühere DHCP-Zuordnungen zählen nicht als aktueller Konflikt. Neue Scan-Schnappschüsse vergleichen Adressen und Namen; fehlende Geräte zeigen die Anzahl vergleichbarer Scans ohne Fund. Andere Netze zählen nicht dazu. Netzwerkdetails lesen IPv4-/IPv6-Routen und Gateways sowie resolvectl-Daten mit eingeschränktem Rückfall auf resolv.conf. Es wird kein Gateway kontaktiert. Bestehende Datenbanken werden ohne Verlust ergänzt; ältere Fund- und Namensquellen bleiben unbekannt. Änderungen und Konflikte werden in der Ergebnisliste gekennzeichnet; Details und JSON enthalten die Beobachtungen.
 
-Version 0.8.6 enthält die Korrektur für SM-085-01. Das DEB wird aus dem passenden Quelltag gebaut; Prüfsumme und Paketinhalt werden im GitHub-Release geprüft. Eine Installation erfolgt nicht automatisch.
+## Version 0.8.6
 
-# showipmac
+Diese Version enthält die Korrektur für SM-085-01. Das DEB wird aus dem passenden Quelltag gebaut; Prüfsumme und Paketinhalt werden im GitHub-Release geprüft. Eine Installation erfolgt nicht automatisch.
+
+## Version 0.9.0
+
+Zeigt Kernelstatus, Linksignal, Treiber und verfügbare Linkwechselzähler der Netzwerkschnittstellen. Auch nicht scanbare Schnittstellen werden erläutert. Die Hinweise unterscheiden beobachtete Kernelwerte von unbestätigten Ursachen.
 
 GTK-4-Anwendung zur Erfassung von Geräten im ausgewählten lokalen Netzwerk.
-Erster Entwicklungsstand; zentrale Versionsquelle: `core.VERSION` (`./.start.sh --version`).
+Die zentrale Versionsquelle ist `core.VERSION` (`./.start.sh --version`).
 
 ```bash
 ./.start.sh
@@ -52,7 +61,7 @@ Bedienung über eine klassische Menüleiste im Stil von Linux Mint/Cinnamon.
 Keine Aktionsschaltflächen im Hauptfenster. Tabellenköpfe sortieren die Liste, IPv4 numerisch. Eigener Rechner, lokale Zeit, kompakte
 IPv6-Anzeige und eine Scan-Zusammenfassung erleichtern die Übersicht.
 
-Aktueller Freigabestand: 0.8.0 – gemeinsame Bausteine eingebaut und technisch geprüft. Josef hat am 04.10.2026 die DEB-Erstellung und Veröffentlichung dieses Stands beauftragt.
+Historischer Freigabestand 0.8.0 – gemeinsame Bausteine eingebaut und technisch geprüft. Josef hat am 04.10.2026 die DEB-Erstellung und Veröffentlichung dieses Stands beauftragt.
 
 ## Reparatur 0.2.7 – globale MAC-Wiedererkennung
 
@@ -78,7 +87,7 @@ Daten einschließlich eigener Namen. Nach vollständiger Deinstallation entsteht
 beim nächsten Start wieder eine neue Datenbank.
 
 Paketerstellung nach Benutzerfreigabe: `./erstelledeb.sh`.
-DEB-Erstellung: `./erstelledeb.sh`. Installation des heruntergeladenen Pakets: `sudo apt install ./showipmac_0.8.0_all.deb`.
+DEB-Erstellung: `./erstelledeb.sh`. Version 0.9.0 lässt sich installieren mit: `sudo apt install ./dist/showipmac_0.9.0_all.deb`.
 
 ## Korrektur 0.3.1 – CSV-Speicherdialog
 

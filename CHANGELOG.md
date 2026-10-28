@@ -1,3 +1,12 @@
+## 0.9.0 – 28.10.2026
+
+- Kernelstatus aller Netzwerkschnittstellen auch dann anzeigen, wenn eine Schnittstelle wegen fehlender Verbindung oder IP-Adresse nicht scanbar ist.
+- Linksignal, Treiber und verfügbare Linkwechselzähler in Übersicht und Netzwerkdetails aufnehmen.
+- Hinweise zu fehlendem Link, IPv6-only, fehlender IPv4-Adresse und administrativ deaktivierter Schnittstelle ergänzen; Ursachen bleiben ausdrücklich unbestätigt.
+- Scan-Auswahl und Statusdiagnose auf eine gemeinsame Zustandsentscheidung umstellen; TESTING und nicht unterstützte Zustände erklären.
+- Fehlende Statusübersetzungen für Deutsch, Englisch und alle acht Zusatzsprachen ergänzen.
+- Versionshinweise der README zwischen Entwicklungsstand 0.9.0 und mitgeliefertem Paketstand 0.8.6 unterscheiden.
+
 ## 0.8.6 – 23.10.2026
 
 - SM-085-01: Befehlslaufzeit und Ausgabekanäle teilen eine monotone Frist; bei Timeout oder Abbruch wird die eigene Prozessgruppe begrenzt beendet.
